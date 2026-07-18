@@ -258,6 +258,60 @@ function Initialize-ToolchainEnvironment {
   }
 }
 
+function Resolve-WdkKernelIncludeRoot {
+  # Returns the Windows Kits Include\<version> directory that contains ntddk.h
+  # (e.g. "C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\").
+  # Returns $null if nothing is found.
+
+  $regRoots = @(
+    'HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots',
+    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows Kits\Installed Roots'
+  )
+
+  $kitsRoot = $null
+  foreach ($reg in $regRoots) {
+    try {
+      $props = Get-ItemProperty -Path $reg -ErrorAction Stop
+      $val = $props.PSObject.Properties['KitsRoot10']
+      if ($null -ne $val -and -not [string]::IsNullOrWhiteSpace([string]$val.Value)) {
+        $kitsRoot = ([string]$val.Value).TrimEnd('\', '/')
+        if (Test-Path -LiteralPath $kitsRoot) { break }
+        $kitsRoot = $null
+      }
+    } catch { }
+  }
+
+  # Fallback: check well-known filesystem locations
+  if (-not $kitsRoot) {
+    foreach ($pf in @(${env:ProgramFiles(x86)}, $env:ProgramFiles)) {
+      if ([string]::IsNullOrWhiteSpace($pf)) { continue }
+      $candidate = Join-Path $pf 'Windows Kits\10'
+      if (Test-Path -LiteralPath $candidate) { $kitsRoot = $candidate; break }
+    }
+  }
+
+  if (-not $kitsRoot) { return $null }
+
+  $includeRoot = Join-Path $kitsRoot 'Include'
+  if (-not (Test-Path -LiteralPath $includeRoot)) { return $null }
+
+  # Pick the newest version directory that contains km\ntddk.h
+  $versionDirs = @(
+    Get-ChildItem -LiteralPath $includeRoot -Directory -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
+      Sort-Object { [Version]$_.Name } -Descending
+  )
+
+  foreach ($dir in $versionDirs) {
+    $ntddk = Join-Path $dir.FullName 'km\ntddk.h'
+    if (Test-Path -LiteralPath $ntddk) {
+      return $dir.FullName.TrimEnd('\', '/') + '\'
+    }
+  }
+
+  return $null
+}
+
 function Resolve-MSBuildPath {
   param($Toolchain)
 
@@ -611,7 +665,8 @@ function Invoke-MSBuild {
     [Parameter(Mandatory = $true)][string]$ObjDir,
     [Parameter(Mandatory = $true)][string]$LogFile,
     [Parameter(Mandatory = $true)][string]$BinLogFile,
-    [Parameter()][string]$SolutionDir
+    [Parameter()][string]$SolutionDir,
+    [Parameter()][string[]]$ExtraProperties = @()
   )
 
   $sep = [IO.Path]::DirectorySeparatorChar
@@ -639,6 +694,11 @@ function Invoke-MSBuild {
   )
   if ($solutionDirNormalized) {
     $args += "/p:SolutionDir=$solutionDirNormalized"
+  }
+  foreach ($prop in $ExtraProperties) {
+    if (-not [string]::IsNullOrWhiteSpace($prop)) {
+      $args += $prop
+    }
   }
 
   Write-Host (Format-CommandLine -Exe $MSBuildPath -Arguments $args)
@@ -783,6 +843,19 @@ if ($null -ne $toolchain) {
 }
 $msbuild = Resolve-MSBuildPath -Toolchain $toolchain
 Write-Host "Using MSBuild: $msbuild"
+
+# Detect the Windows Kits kernel-mode include root (contains ntddk.h) from the registry/filesystem.
+# This is passed to MSBuild as a command-line property so it takes highest precedence over any
+# property-group logic in project files, ensuring ntddk.h is found even when the WDK VS extension
+# props are not loaded (e.g. when vcvarsall.bat is used instead of VsDevCmd.bat under VS 2025).
+$globalExtraMSBuildProps = @()
+$wdkKernelIncludeRoot = Resolve-WdkKernelIncludeRoot
+if ($null -ne $wdkKernelIncludeRoot) {
+  Write-Host "Resolved WDK kernel include root: $wdkKernelIncludeRoot"
+  $globalExtraMSBuildProps += "/p:AeroGpuKmdKitsRoot10=$wdkKernelIncludeRoot"
+} else {
+  Write-Host "Warning: WDK kernel include root (ntddk.h) not found; driver builds may fail if KitsRoot10 is not set by the toolset."
+}
 
 $targets = Discover-DriverBuildTargets -DriversRoot $driversRoot -AllowList $Drivers
 
@@ -1005,7 +1078,8 @@ foreach ($target in $targets) {
           -ObjDir $driverObjDir `
           -LogFile $logFile `
           -BinLogFile $binLogFile `
-          -SolutionDir $solutionDirForProjects
+          -SolutionDir $solutionDirForProjects `
+          -ExtraProperties $globalExtraMSBuildProps
 
         $succeeded = ($exitCode -eq 0)
         if (-not $succeeded) {
@@ -1046,7 +1120,8 @@ foreach ($target in $targets) {
         -OutDir $driverOutDir `
         -ObjDir $driverObjDir `
         -LogFile $logFile `
-        -BinLogFile $binLogFile
+        -BinLogFile $binLogFile `
+        -ExtraProperties $globalExtraMSBuildProps
 
       $succeeded = ($exitCode -eq 0)
       if (-not $succeeded) {
