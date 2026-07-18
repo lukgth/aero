@@ -515,9 +515,9 @@ You can inspect available versions with:
     } catch {
       $message = $_.Exception.Message
 
-      $unknownForce = ($flags -contains '--force') -and ($message -match '(?i)(unknown|unrecognized).*(--force)')
-      $unknownDisable = ($flags -contains '--disable-interactivity') -and ($message -match '(?i)(unknown|unrecognized).*(--disable-interactivity)')
-      $unknownDownloadDir = ($baseArgs -contains '--download-directory') -and ($message -match '(?i)(unknown|unrecognized).*(--download-directory)')
+      $unknownForce = ($flags -contains '--force') -and ($message -match '(?i)(unknown|unrecognized|not\s+recognized).*(--force)')
+      $unknownDisable = ($flags -contains '--disable-interactivity') -and ($message -match '(?i)(unknown|unrecognized|not\s+recognized).*(--disable-interactivity)')
+      $unknownDownloadDir = ($baseArgs -contains '--download-directory') -and ($message -match '(?i)(unknown|unrecognized|not\s+recognized).*(--download-directory)')
 
       # If the failure is clearly due to an unsupported flag, try the next reduced flag set.
       if ($unknownForce -or $unknownDisable -or $unknownDownloadDir) {
