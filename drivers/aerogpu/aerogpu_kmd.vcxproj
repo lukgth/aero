@@ -69,6 +69,12 @@
   -->
   <PropertyGroup>
     <AeroGpuKmdKitsRoot10 Condition="'$(KitsRoot10)'!='' and '$(WindowsSDKVersion)'!=''">$(KitsRoot10)Include\$(WindowsSDKVersion)</AeroGpuKmdKitsRoot10>
+    <!--
+      Fallback when vcvarsall.bat is used instead of VsDevCmd.bat: vcvarsall.bat sets
+      WindowsSdkDir (same root as KitsRoot10) and WindowsSDKVersion, but does not trigger
+      the WDK VS extension props that populate KitsRoot10. Use WindowsSdkDir in that case.
+    -->
+    <AeroGpuKmdKitsRoot10 Condition="'$(AeroGpuKmdKitsRoot10)'=='' and '$(WindowsSdkDir)'!='' and '$(WindowsSDKVersion)'!=''">$(WindowsSdkDir)Include\$(WindowsSDKVersion)</AeroGpuKmdKitsRoot10>
   </PropertyGroup>
 
   <ItemDefinitionGroup>
