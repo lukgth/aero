@@ -68,7 +68,7 @@
     KitsRoot10 and WindowsSDKVersion are set by the Windows Kits MSBuild props (imported above).
   -->
   <PropertyGroup>
-    <AeroGpuKmdKitsRoot10 Condition="’$(KitsRoot10)’!=’’ and ‘$(WindowsSDKVersion)’!=’’">$(KitsRoot10)Include\$(WindowsSDKVersion)</AeroGpuKmdKitsRoot10>
+    <AeroGpuKmdKitsRoot10 Condition="'$(KitsRoot10)'!='' and '$(WindowsSDKVersion)'!=''">$(KitsRoot10)Include\$(WindowsSDKVersion)</AeroGpuKmdKitsRoot10>
   </PropertyGroup>
 
   <ItemDefinitionGroup>
@@ -76,14 +76,14 @@
       <WarningLevel>Level3</WarningLevel>
       <!--
         WDK 10+ headers deprecate some Win7-era kernel APIs / pool types (e.g. NonPagedPool),
-        which we must keep for Win7 runtime compatibility. Don’t let those warnings fail the
+        which we must keep for Win7 runtime compatibility. Don't let those warnings fail the
         build when /WX is enabled by default/tooling.
       -->
       <TreatWarningAsError>false</TreatWarningAsError>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalIncludeDirectories>$(ProjectDir)kmd\include;$(ProjectDir)protocol;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <!-- Explicit WDK10 kernel-mode include paths as fallback when toolset auto-detection fails. -->
-      <AdditionalIncludeDirectories Condition="’$(AeroGpuKmdKitsRoot10)’!=’’">$(AeroGpuKmdKitsRoot10)km;$(AeroGpuKmdKitsRoot10)shared;$(AeroGpuKmdKitsRoot10)wdm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(AeroGpuKmdKitsRoot10)'!=''">$(AeroGpuKmdKitsRoot10)km;$(AeroGpuKmdKitsRoot10)shared;$(AeroGpuKmdKitsRoot10)wdm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
