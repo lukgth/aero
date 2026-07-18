@@ -29,37 +29,6 @@ function(vioinput_list_append_unique list_var)
     set(${list_var} "${${list_var}}" PARENT_SCOPE)
 endfunction()
 
-# On Windows the virtio-input sources include <ntddk.h>, which lives in the WDK
-# kernel-mode include directory (km/).  The Visual Studio generator does not add
-# that path automatically for regular (non-WDK) CMake projects, so locate it here
-# and pass it to every test target below.
-set(VIOINPUT_WDK_KM_INCLUDE "")
-if (WIN32)
-    set(_wdk_roots
-        "$ENV{ProgramFiles\(x86\)}/Windows Kits/10/Include"
-        "$ENV{ProgramFiles}/Windows Kits/10/Include"
-    )
-    foreach (_wdk_root IN LISTS _wdk_roots)
-        if (IS_DIRECTORY "${_wdk_root}")
-            # Pick the highest versioned subdirectory that contains km/ntddk.h
-            file(GLOB _ver_dirs "${_wdk_root}/10.*")
-            list(SORT _ver_dirs ORDER DESCENDING)
-            foreach (_ver_dir IN LISTS _ver_dirs)
-                if (EXISTS "${_ver_dir}/km/ntddk.h")
-                    set(VIOINPUT_WDK_KM_INCLUDE "${_ver_dir}/km")
-                    break()
-                endif ()
-            endforeach ()
-            if (VIOINPUT_WDK_KM_INCLUDE)
-                break()
-            endif ()
-        endif ()
-    endforeach ()
-    if (NOT VIOINPUT_WDK_KM_INCLUDE)
-        message(WARNING "WDK kernel-mode include directory (km/ntddk.h) not found; virtio-input tests may fail to compile on Windows.")
-    endif ()
-endif ()
-
 file(GLOB VIOINPUT_TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/*_test.c")
 list(SORT VIOINPUT_TEST_SOURCES)
 
@@ -110,15 +79,5 @@ foreach(test_src IN LISTS VIOINPUT_TEST_SOURCES)
         C_EXTENSIONS NO
     )
     target_compile_options(${test_name} PRIVATE ${VIOINPUT_TEST_CFLAGS})
-    if (VIOINPUT_WDK_KM_INCLUDE)
-        target_include_directories(${test_name} PRIVATE "${VIOINPUT_WDK_KM_INCLUDE}")
-        # ntddk.h requires NTDDI_VERSION and _WIN32_WINNT to be defined.
-        # Target Windows 7 (0x0601) to match the driver's minimum OS requirement.
-        target_compile_definitions(${test_name} PRIVATE
-            NTDDI_VERSION=0x06010000
-            _WIN32_WINNT=0x0601
-            WINVER=0x0601
-        )
-    endif ()
     add_test(NAME ${test_name} COMMAND ${test_name})
 endforeach ()

@@ -22,7 +22,12 @@ if (AERO_VIRTIO_BUILD_TESTS)
         add_subdirectory(drivers/windows7/virtio-snd/tests)
     endif ()
 
-    if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/drivers/windows7/virtio-input/tests/CMakeLists.txt")
+    # virtio-input tests include <ntddk.h> (kernel-mode headers) unconditionally
+    # on Windows via the source files' include chains.  A regular CMake/MSVC build
+    # cannot compile kernel-mode headers without the full WDK project system
+    # (WDK property sheets, _AMD64_/_X86_ defines, kernel-mode CRT, etc.), so
+    # these tests are skipped on Windows host builds.
+    if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/drivers/windows7/virtio-input/tests/CMakeLists.txt" AND NOT WIN32)
         add_subdirectory(drivers/windows7/virtio-input/tests)
     endif ()
     if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/drivers/windows7/virtio-net/tests/CMakeLists.txt")
