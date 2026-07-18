@@ -215,7 +215,21 @@ static __forceinline void ExQueueWorkItem(_Inout_ PWORK_QUEUE_ITEM Item, _In_ WO
 static __forceinline LONG InterlockedIncrement(volatile LONG *addend) { return _InterlockedIncrement(addend); }
 static __forceinline LONG InterlockedDecrement(volatile LONG *addend) { return _InterlockedDecrement(addend); }
 static __forceinline LONG InterlockedExchange(volatile LONG *target, LONG value) { return _InterlockedExchange(target, value); }
-static __forceinline LONGLONG InterlockedExchange64(volatile LONGLONG *target, LONGLONG value) { return _InterlockedExchange64(target, value); }
+static __forceinline LONGLONG InterlockedExchange64(volatile LONGLONG *target, LONGLONG value)
+{
+#if defined(_M_IX86)
+    /*
+     * 32-bit MSVC test binaries can miss an intrinsic implementation for
+     * _InterlockedExchange64; host tests are single-threaded, so a simple
+     * read/assign fallback is sufficient here.
+     */
+    LONGLONG old = *target;
+    *target = value;
+    return old;
+#else
+    return _InterlockedExchange64(target, value);
+#endif
+}
 static __forceinline LONG InterlockedCompareExchange(volatile LONG *dest, LONG exchange, LONG comparand)
 {
     return _InterlockedCompareExchange(dest, exchange, comparand);

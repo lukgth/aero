@@ -18,6 +18,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
 
 /* Basic WDK-like types */
 typedef void VOID;
@@ -289,7 +292,12 @@ VOID WdkTestSetCurrentIrql(_In_ KIRQL Irql);
 
 static __forceinline VOID KeMemoryBarrier(VOID)
 {
+#if defined(_MSC_VER)
+    volatile LONG barrier = 0;
+    (void)_InterlockedCompareExchange((volatile long*)&barrier, 0, 0);
+#else
     __atomic_thread_fence(__ATOMIC_SEQ_CST);
+#endif
 }
 
 static __forceinline VOID KeInitializeSpinLock(_Out_ PKSPIN_LOCK SpinLock)
@@ -334,7 +342,11 @@ static __forceinline VOID KeAcquireSpinLock(_Inout_ PKSPIN_LOCK SpinLock, _Out_ 
      * Host tests are single-threaded. Contended locks indicate a bug (e.g.
      * double-acquire) and must fail fast instead of spinning forever.
      */
+#if defined(_MSC_VER)
+    if (_InterlockedExchange((volatile long*)&SpinLock->locked, 1) != 0) {
+#else
     if (__atomic_exchange_n(&SpinLock->locked, 1, __ATOMIC_ACQUIRE) != 0) {
+#endif
         ASSERT(FALSE);
     }
 }
@@ -349,7 +361,11 @@ static __forceinline VOID KeReleaseSpinLock(_Inout_ PKSPIN_LOCK SpinLock, _In_ K
      */
     ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
     if (SpinLock != NULL) {
+#if defined(_MSC_VER)
+        LONG prev = _InterlockedExchange((volatile long*)&SpinLock->locked, 0);
+#else
         LONG prev = __atomic_exchange_n(&SpinLock->locked, 0, __ATOMIC_RELEASE);
+#endif
         if (prev == 0) {
             /* Releasing a lock that is not held (double-release) is a bug. */
             ASSERT(FALSE);
@@ -369,29 +385,49 @@ static __forceinline VOID KeStallExecutionProcessor(_In_ ULONG Microseconds)
 /* Interlocked primitives (single-process host tests). */
 static __forceinline LONG InterlockedIncrement(volatile LONG* Addend)
 {
+#if defined(_MSC_VER)
+    return _InterlockedIncrement((volatile long*)Addend);
+#else
     return __atomic_add_fetch((LONG*)Addend, 1, __ATOMIC_SEQ_CST);
+#endif
 }
 
 static __forceinline LONG InterlockedDecrement(volatile LONG* Addend)
 {
+#if defined(_MSC_VER)
+    return _InterlockedDecrement((volatile long*)Addend);
+#else
     return __atomic_sub_fetch((LONG*)Addend, 1, __ATOMIC_SEQ_CST);
+#endif
 }
 
 static __forceinline LONG InterlockedExchange(volatile LONG* Target, LONG Value)
 {
+#if defined(_MSC_VER)
+    return _InterlockedExchange((volatile long*)Target, Value);
+#else
     return __atomic_exchange_n((LONG*)Target, Value, __ATOMIC_SEQ_CST);
+#endif
 }
 
 static __forceinline LONG InterlockedOr(volatile LONG* Destination, LONG Value)
 {
+#if defined(_MSC_VER)
+    return _InterlockedOr((volatile long*)Destination, Value);
+#else
     return __atomic_fetch_or((LONG*)Destination, Value, __ATOMIC_SEQ_CST);
+#endif
 }
 
 static __forceinline LONG InterlockedCompareExchange(volatile LONG* Destination, LONG Exchange, LONG Comperand)
 {
+#if defined(_MSC_VER)
+    return _InterlockedCompareExchange((volatile long*)Destination, Exchange, Comperand);
+#else
     LONG expected = Comperand;
     (void)__atomic_compare_exchange_n((LONG*)Destination, &expected, Exchange, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
     return expected;
+#endif
 }
 
 /* KINTERRUPT */
