@@ -96,6 +96,7 @@ static void FailVq(const VIRTQ_SPLIT *vq, const char *file, int line, const char
 #define ASSERT_TRUE(cond) ASSERT_VQ(NULL, cond)
 #define ASSERT_EQ_U16(a, b) ASSERT_TRUE((UINT16)(a) == (UINT16)(b))
 #define ASSERT_EQ_U32(a, b) ASSERT_TRUE((UINT32)(a) == (UINT32)(b))
+#define STRESS_SG_COUNT 3u
 
 typedef struct _VQ_CTX {
 	UINT16 qsz;
@@ -385,10 +386,9 @@ static BOOLEAN RefVringNeedEvent(UINT16 event, UINT16 new_idx, UINT16 old_idx)
 static void ScenarioOutOfOrderCompletion(BOOLEAN event_idx, BOOLEAN indirect)
 {
 	const UINT16 qsz = 32;
-	const UINT16 sg_count = 3;
 
 	VQ_CTX ctx;
-	VIRTQ_SG sg[sg_count];
+	VIRTQ_SG sg[STRESS_SG_COUNT];
 
 	UINT16 heads[64];
 	UINT16 n, i;
@@ -402,13 +402,13 @@ static void ScenarioOutOfOrderCompletion(BOOLEAN event_idx, BOOLEAN indirect)
 
 	CtxInit(&ctx, qsz, event_idx, indirect);
 
-	for (i = 0; i < sg_count; i++) {
+	for (i = 0; i < STRESS_SG_COUNT; i++) {
 		sg[i].addr = 0x1000 + (UINT64)i * 0x100;
 		sg[i].len = 64 + (UINT32)i;
-		sg[i].write = (i == (UINT16)(sg_count - 1)) ? TRUE : FALSE;
+		sg[i].write = (i == (UINT16)(STRESS_SG_COUNT - 1u)) ? TRUE : FALSE;
 	}
 
-	n = (UINT16)(qsz / (indirect ? 1 : sg_count));
+	n = (UINT16)(qsz / (indirect ? 1u : STRESS_SG_COUNT));
 	ASSERT_TRUE(n > 1);
 
 	for (i = 0; i < n; i++) {
@@ -416,8 +416,8 @@ static void ScenarioOutOfOrderCompletion(BOOLEAN event_idx, BOOLEAN indirect)
 		void *cookie = (void *)(uintptr_t)(0x1000u + i); /* non-NULL opaque */
 
 		sg[0].addr = 0x200000 + (UINT64)i * 0x1000;
-		ASSERT_TRUE(NT_SUCCESS(VirtqSplitAddBuffer(ctx.vq, sg, sg_count, cookie, &head)));
-		ModelOnAdd(&ctx, head, sg_count, cookie);
+		ASSERT_TRUE(NT_SUCCESS(VirtqSplitAddBuffer(ctx.vq, sg, (UINT16)STRESS_SG_COUNT, cookie, &head)));
+		ModelOnAdd(&ctx, head, (UINT16)STRESS_SG_COUNT, cookie);
 		VirtqSplitPublish(ctx.vq, head);
 		AssertInvariants(&ctx);
 	}
@@ -454,10 +454,9 @@ static void ScenarioOutOfOrderCompletion(BOOLEAN event_idx, BOOLEAN indirect)
 static void ScenarioRingFullBackpressure(BOOLEAN event_idx, BOOLEAN indirect)
 {
 	const UINT16 qsz = 32;
-	const UINT16 sg_count = 3;
 
 	VQ_CTX ctx;
-	VIRTQ_SG sg[sg_count];
+	VIRTQ_SG sg[STRESS_SG_COUNT];
 	UINT16 avail_heads[32];
 	UINT16 count = 0;
 	UINT16 i;
@@ -467,10 +466,10 @@ static void ScenarioRingFullBackpressure(BOOLEAN event_idx, BOOLEAN indirect)
 
 	CtxInit(&ctx, qsz, event_idx, indirect);
 
-	for (i = 0; i < sg_count; i++) {
+	for (i = 0; i < STRESS_SG_COUNT; i++) {
 		sg[i].addr = 0x4000 + (UINT64)i * 0x100;
 		sg[i].len = 128 + (UINT32)i;
-		sg[i].write = (i == (UINT16)(sg_count - 1)) ? TRUE : FALSE;
+		sg[i].write = (i == (UINT16)(STRESS_SG_COUNT - 1u)) ? TRUE : FALSE;
 	}
 
 	for (;;) {
@@ -479,13 +478,13 @@ static void ScenarioRingFullBackpressure(BOOLEAN event_idx, BOOLEAN indirect)
 		NTSTATUS st;
 
 		sg[0].addr = 0x800000 + (UINT64)count * 0x1000;
-		st = VirtqSplitAddBuffer(ctx.vq, sg, sg_count, cookie, &head);
+		st = VirtqSplitAddBuffer(ctx.vq, sg, (UINT16)STRESS_SG_COUNT, cookie, &head);
 		if (st == STATUS_INSUFFICIENT_RESOURCES) {
 			break;
 		}
 		ASSERT_TRUE(NT_SUCCESS(st));
 
-		ModelOnAdd(&ctx, head, sg_count, cookie);
+		ModelOnAdd(&ctx, head, (UINT16)STRESS_SG_COUNT, cookie);
 		VirtqSplitPublish(ctx.vq, head);
 		count++;
 		ASSERT_TRUE(count <= qsz);
@@ -529,8 +528,8 @@ static void ScenarioRingFullBackpressure(BOOLEAN event_idx, BOOLEAN indirect)
 		for (i = 0; i < complete_n; i++) {
 			UINT16 head;
 			void *cookie = (void *)(uintptr_t)(0x3000u + i);
-			ASSERT_TRUE(NT_SUCCESS(VirtqSplitAddBuffer(ctx.vq, sg, sg_count, cookie, &head)));
-			ModelOnAdd(&ctx, head, sg_count, cookie);
+			ASSERT_TRUE(NT_SUCCESS(VirtqSplitAddBuffer(ctx.vq, sg, (UINT16)STRESS_SG_COUNT, cookie, &head)));
+			ModelOnAdd(&ctx, head, (UINT16)STRESS_SG_COUNT, cookie);
 			VirtqSplitPublish(ctx.vq, head);
 			AssertInvariants(&ctx);
 		}
@@ -583,11 +582,10 @@ static void ScenarioIndirectPoolExhaustionFallback(BOOLEAN event_idx)
 	 * back to direct chains without corrupting head_indirect[] bookkeeping.
 	 */
 	const UINT16 qsz = 8;
-	const UINT16 sg_count = 3;
 	const UINT16 pool_tables = 1;
 
 	VQ_CTX ctx;
-	VIRTQ_SG sg[sg_count];
+	VIRTQ_SG sg[STRESS_SG_COUNT];
 	UINT16 heads[4];
 	UINT16 i;
 
@@ -598,18 +596,18 @@ static void ScenarioIndirectPoolExhaustionFallback(BOOLEAN event_idx)
 	ASSERT_TRUE(ctx.vq->indirect_pool_va != NULL);
 	ASSERT_EQ_U16(ctx.vq->indirect_table_count, pool_tables);
 
-	for (i = 0; i < sg_count; i++) {
+	for (i = 0; i < STRESS_SG_COUNT; i++) {
 		sg[i].addr = 0x900000 + (UINT64)i * 0x100;
 		sg[i].len = 32 + (UINT32)i;
-		sg[i].write = (i == (UINT16)(sg_count - 1)) ? TRUE : FALSE;
+		sg[i].write = (i == (UINT16)(STRESS_SG_COUNT - 1u)) ? TRUE : FALSE;
 	}
 
 	/* First buffer should use indirect (pool has 1 table). */
 	{
 		void *cookie = (void *)(uintptr_t)0x60000001u;
 		UINT16 head;
-		ASSERT_TRUE(NT_SUCCESS(VirtqSplitAddBuffer(ctx.vq, sg, sg_count, cookie, &head)));
-		ModelOnAdd(&ctx, head, sg_count, cookie);
+		ASSERT_TRUE(NT_SUCCESS(VirtqSplitAddBuffer(ctx.vq, sg, (UINT16)STRESS_SG_COUNT, cookie, &head)));
+		ModelOnAdd(&ctx, head, (UINT16)STRESS_SG_COUNT, cookie);
 		ASSERT_VQ(ctx.vq, ctx.vq->head_indirect[head] != VIRTQ_SPLIT_NO_DESC);
 		VirtqSplitPublish(ctx.vq, head);
 		AssertInvariants(&ctx);
@@ -619,8 +617,8 @@ static void ScenarioIndirectPoolExhaustionFallback(BOOLEAN event_idx)
 	for (i = 0; i < 2; i++) {
 		void *cookie = (void *)(uintptr_t)(0x60000010u + i);
 		UINT16 head;
-		ASSERT_TRUE(NT_SUCCESS(VirtqSplitAddBuffer(ctx.vq, sg, sg_count, cookie, &head)));
-		ModelOnAdd(&ctx, head, sg_count, cookie);
+		ASSERT_TRUE(NT_SUCCESS(VirtqSplitAddBuffer(ctx.vq, sg, (UINT16)STRESS_SG_COUNT, cookie, &head)));
+		ModelOnAdd(&ctx, head, (UINT16)STRESS_SG_COUNT, cookie);
 		ASSERT_VQ(ctx.vq, ctx.vq->head_indirect[head] == VIRTQ_SPLIT_NO_DESC);
 		VirtqSplitPublish(ctx.vq, head);
 		AssertInvariants(&ctx);
@@ -662,8 +660,8 @@ static void ScenarioIndirectPoolExhaustionFallback(BOOLEAN event_idx)
 	{
 		UINT16 head;
 		void *cookie = (void *)(uintptr_t)0x60000099u;
-		ASSERT_TRUE(NT_SUCCESS(VirtqSplitAddBuffer(ctx.vq, sg, sg_count, cookie, &head)));
-		ModelOnAdd(&ctx, head, sg_count, cookie);
+		ASSERT_TRUE(NT_SUCCESS(VirtqSplitAddBuffer(ctx.vq, sg, (UINT16)STRESS_SG_COUNT, cookie, &head)));
+		ModelOnAdd(&ctx, head, (UINT16)STRESS_SG_COUNT, cookie);
 		ASSERT_VQ(ctx.vq, ctx.vq->head_indirect[head] != VIRTQ_SPLIT_NO_DESC);
 		VirtqSplitPublish(ctx.vq, head);
 
@@ -688,12 +686,11 @@ static void ScenarioIndirectPoolExhaustionFallback(BOOLEAN event_idx)
 static void ScenarioWraparoundTorture(BOOLEAN event_idx, BOOLEAN indirect)
 {
 	const UINT16 qsz = 32;
-	const UINT16 sg_count = 3;
 	const UINT16 start = 0xFFF0u;
 	const UINT32 ops = 100000;
 
 	VQ_CTX ctx;
-	VIRTQ_SG sg[sg_count];
+	VIRTQ_SG sg[STRESS_SG_COUNT];
 	UINT16 outstanding[64];
 	UINT16 outstanding_count = 0;
 	UINT32 cookie_counter = 1;
@@ -727,19 +724,19 @@ static void ScenarioWraparoundTorture(BOOLEAN event_idx, BOOLEAN indirect)
 		void *exp_cookie[4];
 		UINT32 exp_len[4];
 
-		for (i = 0; i < sg_count; i++) {
+		for (i = 0; i < STRESS_SG_COUNT; i++) {
 			sg[i].addr = 0x100000 + (UINT64)i * 0x100 + (UINT64)step * 0x1000;
 			sg[i].len = 64 + (UINT32)i;
-			sg[i].write = (i == (UINT16)(sg_count - 1)) ? TRUE : FALSE;
+			sg[i].write = (i == (UINT16)(STRESS_SG_COUNT - 1u)) ? TRUE : FALSE;
 		}
 
 		/* Prefer adds but accept backpressure. */
 		if (PrngRange(&rng, 100) < 70) {
 			UINT16 head;
 			void *cookie = (void *)(uintptr_t)(0x40000000u + cookie_counter++);
-			NTSTATUS st = VirtqSplitAddBuffer(ctx.vq, sg, sg_count, cookie, &head);
+			NTSTATUS st = VirtqSplitAddBuffer(ctx.vq, sg, (UINT16)STRESS_SG_COUNT, cookie, &head);
 			if (NT_SUCCESS(st)) {
-				ModelOnAdd(&ctx, head, sg_count, cookie);
+				ModelOnAdd(&ctx, head, (UINT16)STRESS_SG_COUNT, cookie);
 				VirtqSplitPublish(ctx.vq, head);
 			} else {
 				ASSERT_TRUE(st == STATUS_INSUFFICIENT_RESOURCES);
