@@ -792,6 +792,9 @@ typedef enum _D3DDDIPRIMITIVETYPE {
 //
 // These mirror the public D3D9 API structs from d3d9types.h so host-side tests
 // can compile without the Windows SDK/WDK.
+// On Windows, d3d9types.h (included above) already defines these; guard them to
+// avoid redefinition errors when building with the Windows SDK present.
+#if !defined(_WIN32)
 typedef enum _D3DBASISTYPE {
   D3DBASIS_BEZIER = 0,
   D3DBASIS_BSPLINE = 1,
@@ -818,6 +821,7 @@ typedef struct _D3DTRIPATCH_INFO {
   D3DBASISTYPE Basis;
   D3DDEGREETYPE Degree;
 } D3DTRIPATCH_INFO;
+#endif
 
 typedef struct _D3DDDIVIEWPORTINFO {
   float X;

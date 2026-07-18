@@ -562,9 +562,9 @@ function Ensure-WindowsKitToolchain {
   [CmdletBinding()]
   param(
     [Parameter()]
-    [string]$PreferredWdkWingetId = 'Microsoft.WindowsWDK',
+    [string]$PreferredWdkWingetId = 'Microsoft.WindowsWDK.10.0.26100',
     [Parameter()]
-    [string]$PreferredWdkKitVersion = '10.0.22621.0'
+    [string]$PreferredWdkKitVersion = '10.0.26100.0'
   )
 
   $toolchain = Resolve-WindowsKitToolchain -RequireWin7Inf2Cat
@@ -622,9 +622,12 @@ Remediation:
   $installAttempted = $false
   $wdkIdCandidates = @(
     $PreferredWdkWingetId,
+    'Microsoft.WindowsWDK.10.0.26100',
+    'Microsoft.WindowsWDK.10.0.28000',
+    'Microsoft.WindowsWDK.10.0.22621',
     'Microsoft.WindowsDriverKit'
   ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
-  $sdkIdCandidates = @('Microsoft.WindowsSDK')
+  $sdkIdCandidates = @('Microsoft.WindowsSDK.10.0.26100', 'Microsoft.WindowsSDK.10.0.28000', 'Microsoft.WindowsSDK')
 
   foreach ($versionCandidate in $versionCandidates) {
     $versionLabel = if ([string]::IsNullOrWhiteSpace($versionCandidate)) { 'latest' } else { $versionCandidate }

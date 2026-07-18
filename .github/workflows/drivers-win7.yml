@@ -208,34 +208,9 @@ jobs:
   aerogpu-host-tests-windows:
     name: AeroGPU host tests (Windows, x86 + x64)
     runs-on: windows-latest
-    env:
-      WDK_DOWNLOAD_CACHE: C:\wdk-download-cache
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Prepare WDK download cache directory
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          New-Item -ItemType Directory -Force -Path $env:WDK_DOWNLOAD_CACHE | Out-Null
-
-      - name: Cache WDK downloads
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.WDK_DOWNLOAD_CACHE }}
-          key: wdk-download-${{ runner.os }}-${{ hashFiles('ci/install-wdk.ps1', 'ci/lib/Toolchain.psm1') }}
-          restore-keys: |
-            wdk-download-${{ runner.os }}-
-
-      - name: Provision toolchain (ci/install-wdk.ps1)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          if (!(Test-Path -LiteralPath 'ci\install-wdk.ps1')) {
-            throw "Expected script ci\install-wdk.ps1 to exist."
-          }
-          pwsh -NoProfile -ExecutionPolicy Bypass -File 'ci\install-wdk.ps1'
 
       - name: Run AeroGPU host tests (CMake)
         shell: pwsh
