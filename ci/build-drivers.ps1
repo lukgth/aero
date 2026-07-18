@@ -258,38 +258,41 @@ function Initialize-ToolchainEnvironment {
   }
 }
 
-function Resolve-WdkKernelIncludeRoot {
-  # Returns the Windows Kits Include\<version> directory that contains ntddk.h
-  # (e.g. "C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\").
-  # Returns $null if nothing is found.
+function Resolve-WindowsKits10Root {
+  # Returns the Windows Kits 10 root directory (KitsRoot10), e.g.
+  # "C:\Program Files (x86)\Windows Kits\10". Returns $null if not found.
 
   $regRoots = @(
     'HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots',
     'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows Kits\Installed Roots'
   )
 
-  $kitsRoot = $null
   foreach ($reg in $regRoots) {
     try {
       $props = Get-ItemProperty -Path $reg -ErrorAction Stop
       $val = $props.PSObject.Properties['KitsRoot10']
       if ($null -ne $val -and -not [string]::IsNullOrWhiteSpace([string]$val.Value)) {
-        $kitsRoot = ([string]$val.Value).TrimEnd('\', '/')
-        if (Test-Path -LiteralPath $kitsRoot) { break }
-        $kitsRoot = $null
+        $root = ([string]$val.Value).TrimEnd('\', '/')
+        if (Test-Path -LiteralPath $root) { return $root }
       }
     } catch { }
   }
 
-  # Fallback: check well-known filesystem locations
-  if (-not $kitsRoot) {
-    foreach ($pf in @(${env:ProgramFiles(x86)}, $env:ProgramFiles)) {
-      if ([string]::IsNullOrWhiteSpace($pf)) { continue }
-      $candidate = Join-Path $pf 'Windows Kits\10'
-      if (Test-Path -LiteralPath $candidate) { $kitsRoot = $candidate; break }
-    }
+  foreach ($pf in @(${env:ProgramFiles(x86)}, $env:ProgramFiles)) {
+    if ([string]::IsNullOrWhiteSpace($pf)) { continue }
+    $candidate = Join-Path $pf 'Windows Kits\10'
+    if (Test-Path -LiteralPath $candidate) { return $candidate }
   }
 
+  return $null
+}
+
+function Resolve-WdkKernelIncludeRoot {
+  # Returns the Windows Kits Include\<version> directory that contains ntddk.h
+  # (e.g. "C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\").
+  # Returns $null if nothing is found.
+
+  $kitsRoot = Resolve-WindowsKits10Root
   if (-not $kitsRoot) { return $null }
 
   $includeRoot = Join-Path $kitsRoot 'Include'
@@ -844,11 +847,29 @@ if ($null -ne $toolchain) {
 $msbuild = Resolve-MSBuildPath -Toolchain $toolchain
 Write-Host "Using MSBuild: $msbuild"
 
-# Detect the Windows Kits kernel-mode include root (contains ntddk.h) from the registry/filesystem.
-# This is passed to MSBuild as a command-line property so it takes highest precedence over any
-# property-group logic in project files, ensuring ntddk.h is found even when the WDK VS extension
-# props are not loaded (e.g. when vcvarsall.bat is used instead of VsDevCmd.bat under VS 2025).
+# Detect Windows Kits paths from the registry/filesystem and pass them to MSBuild as command-line
+# properties (highest precedence). On VS 2025 the WDK VS extension may not be installed or may
+# not register WDKContentRoot in the environment, so the WindowsKernelModeDriver10.0 toolset's
+# Toolset.props silently skips importing WindowsDriver.common.props — which means _X86_ / _AMD64_
+# are never defined and ntdef.h emits "No Target Architecture" (C1189).
+# Passing WDKContentRoot explicitly here re-enables that import path without requiring the extension.
 $globalExtraMSBuildProps = @()
+
+$wdkContentRoot = Resolve-WindowsKits10Root
+if ($null -ne $wdkContentRoot) {
+  $wdkContentRootWithSlash = $wdkContentRoot.TrimEnd('\', '/') + '\'
+  $commonProps = Join-Path $wdkContentRoot 'build\WindowsDriver.common.props'
+  Write-Host "Resolved WDK content root: $wdkContentRootWithSlash"
+  if (Test-Path -LiteralPath $commonProps) {
+    Write-Host "WDK common props found: $commonProps"
+  } else {
+    Write-Host "Warning: WDK common props not found at $commonProps (WDKContentRoot import will be a no-op)"
+  }
+  $globalExtraMSBuildProps += "/p:WDKContentRoot=$wdkContentRootWithSlash"
+} else {
+  Write-Host "Warning: Windows Kits 10 root not found; WDKContentRoot will not be set."
+}
+
 $wdkKernelIncludeRoot = Resolve-WdkKernelIncludeRoot
 if ($null -ne $wdkKernelIncludeRoot) {
   Write-Host "Resolved WDK kernel include root: $wdkKernelIncludeRoot"
