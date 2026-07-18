@@ -636,7 +636,7 @@ function Invoke-MSBuild {
 
   Write-Host (Format-CommandLine -Exe $MSBuildPath -Arguments $args)
 
-  & $MSBuildPath @args
+  & $MSBuildPath @args | Out-Host
   $exitCode = $LASTEXITCODE
 
   return $exitCode
@@ -1006,6 +1006,11 @@ foreach ($target in $targets) {
           Write-Host ("!! Build FAILED for driver '{0}' project '{1}' Platform={2} (exit code {3})" -f $target.Name, $projName, $platform, $exitCode)
           Write-Host ("   MSBuild log:   {0}" -f $logFile)
           Write-Host ("   MSBuild binlog:{0}" -f $binLogFile)
+          if (Test-Path -LiteralPath $logFile) {
+            Write-Host "   --- last 40 lines of MSBuild log ---"
+            Get-Content -LiteralPath $logFile -Tail 40 | ForEach-Object { Write-Host "   $_" }
+            Write-Host "   --- end of log tail ---"
+          }
         }
 
         [void]$results.Add([pscustomobject]@{
@@ -1042,6 +1047,11 @@ foreach ($target in $targets) {
         Write-Host ("!! Build FAILED for driver '{0}' Platform={1} (exit code {2})" -f $target.Name, $platform, $exitCode)
         Write-Host ("   MSBuild log:   {0}" -f $logFile)
         Write-Host ("   MSBuild binlog:{0}" -f $binLogFile)
+        if (Test-Path -LiteralPath $logFile) {
+          Write-Host "   --- last 40 lines of MSBuild log ---"
+          Get-Content -LiteralPath $logFile -Tail 40 | ForEach-Object { Write-Host "   $_" }
+          Write-Host "   --- end of log tail ---"
+        }
       }
 
       [void]$results.Add([pscustomobject]@{

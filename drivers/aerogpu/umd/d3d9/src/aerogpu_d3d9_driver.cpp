@@ -2748,9 +2748,14 @@ static bool SupportsBcFormats(const Device* dev) {
   }
 
 #if defined(_WIN32)
-  // On Windows we can usually query the active device ABI version via the
-  // UMDRIVERPRIVATE blob. Be conservative: if we cannot query it, assume BC
-  // formats are unsupported so we don't emit commands the host cannot parse.
+  // Without an active WDDM context (portable/test mode), there is no real
+  // device to query. Assume BC support matches the protocol headers.
+  if (dev->wddm_context.hContext == 0) {
+    return true;
+  }
+  // On the real WDDM path, check the ABI version from the adapter private-data
+  // blob. Be conservative: if we cannot query it, assume BC formats are
+  // unsupported so we don't emit commands the host cannot parse.
   if (!dev->adapter->umd_private_valid) {
     return false;
   }
@@ -3989,11 +3994,13 @@ bool ensure_cmd_space(Device* dev, size_t bytes_needed) {
   }
 
 #if defined(_WIN32)
-  if (dev->wddm_context.hContext != 0) {
+  if (dev->wddm_context.hContext != 0 && !dev->wddm_context.is_simulated) {
     // In WDDM builds, never allow command emission to fall back to the
     // vector-backed writer: submissions must be built in runtime-provided DMA
     // buffers so allocation-list tracking and DMA-private-data handoff to the
     // KMD are correct.
+    // Skip for simulated contexts (portable host tests that set hContext != 0
+    // without providing real WDDM callbacks or DMA buffers).
     if (!wddm_ensure_recording_buffers(dev, bytes_needed)) {
       return false;
     }
@@ -4057,10 +4064,14 @@ HRESULT track_resource_allocation_locked(Device* dev, Resource* res, bool write)
 
 #if defined(_WIN32)
   // Ensure the allocation list backing store is available before we attempt to
-  // write D3DDDI_ALLOCATIONLIST entries.
-  const size_t min_packet = align_up(sizeof(aerogpu_cmd_hdr), 4);
-  if (!wddm_ensure_recording_buffers(dev, min_packet)) {
-    return E_FAIL;
+  // write D3DDDI_ALLOCATIONLIST entries. Skip for simulated contexts (portable
+  // host tests that call device_test_enable_wddm_context but do not provide
+  // real WDDM callbacks or DMA buffers).
+  if (!dev->wddm_context.is_simulated) {
+    const size_t min_packet = align_up(sizeof(aerogpu_cmd_hdr), 4);
+    if (!wddm_ensure_recording_buffers(dev, min_packet)) {
+      return E_FAIL;
+    }
   }
 #endif
 
@@ -10789,10 +10800,14 @@ HRESULT AEROGPU_D3D9_CALL device_create_resource(
   // default pool; rather than failing creation, fall back to host-backed storage
   // so the host can allocate the full texture and the UMD can update it via
   // UPLOAD_RESOURCE.
+  // Exception: if the runtime already attached a WDDM allocation handle, honour
+  // the caller's intent and keep the resource alloc-backed. This is also the
+  // portable test path where the test provides a dummy hAllocation.
   force_host_backing =
       !wants_shared &&
       res->kind != ResourceKind::Buffer &&
-      (res->mip_levels > 1 || res->depth > 1);
+      (res->mip_levels > 1 || res->depth > 1) &&
+      res->wddm_hAllocation == 0;
   if (force_host_backing) {
     // Ensure the allocation private-driver-data blob is not interpreted by the
     // KMD as an AeroGPU alloc-id contract. The D3D9 runtime owns this buffer and
@@ -27832,10 +27847,13 @@ HRESULT AEROGPU_D3D9_CALL device_test_enable_wddm_context(D3DDDI_HDEVICE hDevice
   std::lock_guard<std::mutex> lock(dev->mutex);
   // Allocation tracking is guarded on `hContext != 0`. Portable host tests don't
   // run against a real WDDM runtime, so CreateDevice leaves `hContext` as 0 and
-  // tests opt-in by setting a dummy non-zero value.
+  // tests opt-in by setting a dummy non-zero value. Mark the context as simulated
+  // so command emission uses the vector-backed writer instead of requiring
+  // runtime-provided DMA buffers.
   if (dev->wddm_context.hContext == 0) {
     dev->wddm_context.hContext = 1;
   }
+  dev->wddm_context.is_simulated = true;
   return S_OK;
 }
 

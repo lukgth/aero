@@ -28,6 +28,11 @@ struct WddmContext {
   WddmHandle hContext = 0;
   WddmHandle hSyncObject = 0;
 
+  // Set by device_test_enable_wddm_context() to indicate the context is
+  // simulated in a portable host test. When true, command emission uses the
+  // vector-backed writer instead of requiring runtime-provided DMA buffers.
+  bool is_simulated = false;
+
   // Some WDDM callback structs expose a distinct DMA buffer pointer (pDmaBuffer)
   // in addition to the command buffer pointer (pCommandBuffer). Treat pCommandBuffer
   // as the base pointer for recording AeroGPU commands, but preserve pDmaBuffer so
