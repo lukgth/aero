@@ -220,34 +220,41 @@ function Initialize-ToolchainEnvironment {
   $vsDevCmd = Get-ToolchainPropertyValue -Toolchain $Toolchain -Names @('VsDevCmd', 'vsDevCmd', 'vsdevcmd')
   $vcVarsAll = Get-ToolchainPropertyValue -Toolchain $Toolchain -Names @('VcVarsAll', 'vcVarsAll', 'vcvarsall')
 
+  # Compute host/target architecture strings upfront; needed for both VsDevCmd and vcvarsall paths.
+  $procArch = ([string]$env:PROCESSOR_ARCHITECTURE).Trim().ToLowerInvariant()
+  $isX86Host = ($procArch -eq 'x86')
+
+  # vcvarsall.bat arch argument (e.g. 'amd64', 'amd64_x86', 'x86')
+  $vcHostArch = if ($isX86Host) { 'x86' } else { 'amd64' }
+  $vcArchArg = if ($Platform -eq 'Win32') {
+    if ($vcHostArch -eq 'amd64') { 'amd64_x86' } else { 'x86' }
+  } else {
+    if ($vcHostArch -eq 'amd64') { 'amd64' } else { 'x86_amd64' }
+  }
+
   # If we have a dev-environment batch file, use it to populate PATH/INCLUDE/LIB/etc.
   # We import an environment per *target* platform so that building both Win32 and x64 works reliably.
+  #
+  # VsDevCmd.bat is tried first; if it fails (VS 2022 17.8+ and VS 2025 can return exit code 1
+  # in non-interactive CI contexts), we fall back to vcvarsall.bat which has no such restriction.
   if ($vsDevCmd) {
-    $hostVsArch = 'x64'
-    $procArch = [string]$env:PROCESSOR_ARCHITECTURE
-    if ($procArch -and $procArch.Trim().ToLowerInvariant() -eq 'x86') {
-      $hostVsArch = 'x86'
-    }
-
+    $hostVsArch = if ($isX86Host) { 'x86' } else { 'x64' }
     $targetVsArch = if ($Platform -eq 'Win32') { 'x86' } else { 'x64' }
 
     Write-Host "Importing Visual Studio environment via VsDevCmd: $vsDevCmd (-arch=$targetVsArch -host_arch=$hostVsArch)"
-    Import-EnvironmentFromBatchFile -BatchPath $vsDevCmd -Arguments @("-arch=$targetVsArch", "-host_arch=$hostVsArch")
+    try {
+      Import-EnvironmentFromBatchFile -BatchPath $vsDevCmd -Arguments @("-arch=$targetVsArch", "-host_arch=$hostVsArch")
+    } catch {
+      if ($vcVarsAll) {
+        Write-Host "Warning: VsDevCmd.bat failed ($($_.Exception.Message)); falling back to vcvarsall.bat ($vcArchArg)..."
+        Import-EnvironmentFromBatchFile -BatchPath $vcVarsAll -Arguments @($vcArchArg)
+      } else {
+        throw
+      }
+    }
   } elseif ($vcVarsAll) {
-    $hostVcArch = 'amd64'
-    $procArch = [string]$env:PROCESSOR_ARCHITECTURE
-    if ($procArch -and $procArch.Trim().ToLowerInvariant() -eq 'x86') {
-      $hostVcArch = 'x86'
-    }
-
-    if ($Platform -eq 'Win32') {
-      $archArg = if ($hostVcArch -eq 'amd64') { 'amd64_x86' } else { 'x86' }
-    } else {
-      $archArg = if ($hostVcArch -eq 'amd64') { 'amd64' } else { 'x86_amd64' }
-    }
-
-    Write-Host "Importing Visual Studio environment via vcvarsall: $vcVarsAll ($archArg)"
-    Import-EnvironmentFromBatchFile -BatchPath $vcVarsAll -Arguments @($archArg)
+    Write-Host "Importing Visual Studio environment via vcvarsall: $vcVarsAll ($vcArchArg)"
+    Import-EnvironmentFromBatchFile -BatchPath $vcVarsAll -Arguments @($vcArchArg)
   }
 }
 
