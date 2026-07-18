@@ -473,7 +473,11 @@ NTSTATUS KeDelayExecutionThread(_In_ KPROCESSOR_MODE WaitMode, _In_ BOOLEAN Aler
     if (g_test_auto_complete_dpc_inflight_ptr != NULL && g_test_auto_complete_dpc_inflight_after_delay_calls != 0) {
         g_test_auto_complete_dpc_inflight_after_delay_calls--;
         if (g_test_auto_complete_dpc_inflight_after_delay_calls == 0) {
+#if defined(_MSC_VER)
+            _InterlockedExchange((volatile long*)g_test_auto_complete_dpc_inflight_ptr, 0);
+#else
             __atomic_store_n((LONG*)g_test_auto_complete_dpc_inflight_ptr, 0, __ATOMIC_SEQ_CST);
+#endif
             g_test_auto_complete_dpc_inflight_ptr = NULL;
         }
     }

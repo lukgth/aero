@@ -200,6 +200,42 @@ typedef struct _LUID {
   // compile without the WDK.
   #include <d3d9types.h>
   #include <d3d9caps.h>
+
+  // Fallback for caps constants that may not be present in all Windows SDK
+  // configurations (e.g. older DirectX headers or lean SDK installations).
+  #ifndef D3DCAPS2_CANRENDERWINDOWED
+    #define D3DCAPS2_CANRENDERWINDOWED 0x00000020L
+  #endif
+  #ifndef D3DDTCAPS_FLOAT1
+    #define D3DDTCAPS_FLOAT1 0x00000001L
+  #endif
+  #ifndef D3DDTCAPS_FLOAT2
+    #define D3DDTCAPS_FLOAT2 0x00000002L
+  #endif
+  #ifndef D3DDTCAPS_FLOAT3
+    #define D3DDTCAPS_FLOAT3 0x00000004L
+  #endif
+  #ifndef D3DDTCAPS_FLOAT4
+    #define D3DDTCAPS_FLOAT4 0x00000008L
+  #endif
+  #ifndef D3DDTCAPS_D3DCOLOR
+    #define D3DDTCAPS_D3DCOLOR 0x00000010L
+  #endif
+  #ifndef D3DDTCAPS_UBYTE4N
+    #define D3DDTCAPS_UBYTE4N 0x00000200L
+  #endif
+  #ifndef D3DPRASTERCAPS_CULLCCW
+    #define D3DPRASTERCAPS_CULLCCW 0x00000020L
+  #endif
+  #ifndef D3DPRASTERCAPS_CULLCW
+    #define D3DPRASTERCAPS_CULLCW 0x00000010L
+  #endif
+  #ifndef D3DPBLENDCAPS_BLENDFACTOR
+    #define D3DPBLENDCAPS_BLENDFACTOR 0x00002000L
+  #endif
+  #ifndef D3DPBLENDCAPS_INVBLENDFACTOR
+    #define D3DPBLENDCAPS_INVBLENDFACTOR 0x00004000L
+  #endif
 #endif
 
 #if !defined(_WIN32)

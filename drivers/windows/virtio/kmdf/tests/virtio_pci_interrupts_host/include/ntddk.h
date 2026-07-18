@@ -177,22 +177,41 @@ static __forceinline VOID WRITE_REGISTER_ULONG(_Out_ volatile ULONG* Register, _
     *Register = Value;
 }
 
-/* Interlocked operations (implemented using GCC/Clang atomics). */
+/* Interlocked operations. */
+#if defined(_MSC_VER)
+#include <intrin.h>
+static __forceinline LONG InterlockedIncrement(_Inout_ volatile LONG* Addend)
+{
+    return (LONG)_InterlockedIncrement((volatile long*)Addend);
+}
+static __forceinline LONG InterlockedExchange(_Inout_ volatile LONG* Target, _In_ LONG Value)
+{
+    return (LONG)_InterlockedExchange((volatile long*)Target, (long)Value);
+}
+static __forceinline LONG InterlockedOr(_Inout_ volatile LONG* Target, _In_ LONG Value)
+{
+    return (LONG)_InterlockedOr((volatile long*)Target, (long)Value);
+}
+static __forceinline LONG InterlockedCompareExchange(
+    _Inout_ volatile LONG* Destination,
+    _In_ LONG Exchange,
+    _In_ LONG Comperand)
+{
+    return (LONG)_InterlockedCompareExchange((volatile long*)Destination, (long)Exchange, (long)Comperand);
+}
+#else
 static __forceinline LONG InterlockedIncrement(_Inout_ volatile LONG* Addend)
 {
     return __atomic_add_fetch(Addend, 1, __ATOMIC_SEQ_CST);
 }
-
 static __forceinline LONG InterlockedExchange(_Inout_ volatile LONG* Target, _In_ LONG Value)
 {
     return __atomic_exchange_n(Target, Value, __ATOMIC_SEQ_CST);
 }
-
 static __forceinline LONG InterlockedOr(_Inout_ volatile LONG* Target, _In_ LONG Value)
 {
     return __atomic_fetch_or(Target, Value, __ATOMIC_SEQ_CST);
 }
-
 static __forceinline LONG InterlockedCompareExchange(
     _Inout_ volatile LONG* Destination,
     _In_ LONG Exchange,
@@ -202,3 +221,4 @@ static __forceinline LONG InterlockedCompareExchange(
     (VOID)__atomic_compare_exchange_n(Destination, &expected, Exchange, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
     return expected;
 }
+#endif

@@ -184,6 +184,19 @@ struct caps_has_blend_op_caps : std::false_type {};
 template <typename T>
 struct caps_has_blend_op_caps<T, std::void_t<decltype(std::declval<T>().BlendOpCaps)>> : std::true_type {};
 
+template <typename T, typename = void>
+struct shader_caps_has_num_instruction_slots : std::false_type {};
+template <typename T>
+struct shader_caps_has_num_instruction_slots<T, std::void_t<decltype(std::declval<T>().NumInstructionSlots)>> : std::true_type {};
+
+template <typename ShaderCapsT>
+void maybe_set_num_instruction_slots(ShaderCapsT* sc, int val) {
+  if (!sc) return;
+  if constexpr (shader_caps_has_num_instruction_slots<ShaderCapsT>::value) {
+    sc->NumInstructionSlots = val;
+  }
+}
+
 #ifndef D3DBLENDOPCAPS_ADD
   #define D3DBLENDOPCAPS_ADD 0x00000001u
 #endif
@@ -473,18 +486,35 @@ void fill_d3d9_caps(D3DCAPS9* out) {
   out->VS20Caps.DynamicFlowControlDepth = 0;
   out->VS20Caps.NumTemps = 32;
   out->VS20Caps.StaticFlowControlDepth = 0;
-  out->VS20Caps.NumInstructionSlots = 256;
+  maybe_set_num_instruction_slots(&out->VS20Caps, 256);
 
   out->PS20Caps.Caps = 0;
   out->PS20Caps.DynamicFlowControlDepth = 0;
   out->PS20Caps.NumTemps = 32;
   out->PS20Caps.StaticFlowControlDepth = 0;
-  out->PS20Caps.NumInstructionSlots = 512;
+  maybe_set_num_instruction_slots(&out->PS20Caps, 512);
 
   out->PixelShader1xMaxValue = 1.0f;
 }
 
 #if defined(_WIN32)
+
+// Template helper so `if constexpr (caps_has_blend_op_caps<CapsT>::value)` is
+// template-dependent; MSVC type-checks the discarded branch in non-template
+// contexts even with `if constexpr`.
+template <typename CapsT>
+void log_blend_caps(const CapsT& caps) {
+  if constexpr (caps_has_blend_op_caps<CapsT>::value) {
+    logf("aerogpu-d3d9: caps blend: SrcBlendCaps=0x%08lX DestBlendCaps=0x%08lX BlendOpCaps=0x%08lX\n",
+         (unsigned long)caps.SrcBlendCaps,
+         (unsigned long)caps.DestBlendCaps,
+         (unsigned long)caps.BlendOpCaps);
+  } else {
+    logf("aerogpu-d3d9: caps blend: SrcBlendCaps=0x%08lX DestBlendCaps=0x%08lX (BlendOpCaps unavailable)\n",
+         (unsigned long)caps.SrcBlendCaps,
+         (unsigned long)caps.DestBlendCaps);
+  }
+}
 
 void log_caps_once(const D3DCAPS9& caps) {
   const bool already = g_logged_caps_once.exchange(true);
@@ -520,17 +550,7 @@ void log_caps_once(const D3DCAPS9& caps) {
   logf("aerogpu-d3d9: caps texfilt: TextureFilterCaps=0x%08lX StretchRectFilterCaps=0x%08lX\n",
        (unsigned long)caps.TextureFilterCaps,
        (unsigned long)caps.StretchRectFilterCaps);
-  if constexpr (caps_has_blend_op_caps<D3DCAPS9>::value) {
-    logf("aerogpu-d3d9: caps blend: SrcBlendCaps=0x%08lX DestBlendCaps=0x%08lX BlendOpCaps=0x%08lX\n",
-         (unsigned long)caps.SrcBlendCaps,
-         (unsigned long)caps.DestBlendCaps,
-         (unsigned long)caps.BlendOpCaps);
-  } else {
-    // Some header vintages may not expose BlendOpCaps on D3DCAPS9; avoid referencing it.
-    logf("aerogpu-d3d9: caps blend: SrcBlendCaps=0x%08lX DestBlendCaps=0x%08lX (BlendOpCaps unavailable)\n",
-         (unsigned long)caps.SrcBlendCaps,
-         (unsigned long)caps.DestBlendCaps);
-  }
+  log_blend_caps(caps);
 }
 
 void fill_adapter_identifier(D3DADAPTER_IDENTIFIER9* out) {

@@ -43,6 +43,13 @@
 namespace aerogpu::d3d10_11 {
 
 #if defined(_WIN32)
+// NTSTATUS may not be defined when WIN32_NO_STATUS is set before <winnt.h> is
+// included (some SDK configurations do this to avoid clashes with <ntstatus.h>).
+// Provide a fallback so this header is self-contained.
+#ifndef NTSTATUS
+typedef LONG NTSTATUS;
+#endif
+
 // Some WDK/SDK revisions omit the NT_SUCCESS helper macro in user-mode header
 // configurations. Prefer a local constexpr helper so WDK-only translation units
 // don't need to carry their own fallback macros.
