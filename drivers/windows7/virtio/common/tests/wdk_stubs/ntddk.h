@@ -315,7 +315,8 @@ VOID WdkTestSetCurrentIrql(_In_ KIRQL Irql);
 #include <intrin.h>
 static __forceinline VOID KeMemoryBarrier(VOID)
 {
-    MemoryBarrier();
+    /* Host tests are single-threaded; a compiler barrier is sufficient. */
+    _ReadWriteBarrier();
 }
 #else
 static __forceinline VOID KeMemoryBarrier(VOID)
