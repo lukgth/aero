@@ -12678,7 +12678,7 @@ bool TestDrawStateTrackingPreSplitRetainsAllocs() {
   D3DDDI_HRESOURCE hRt{};
   hRt.pDrvPrivate = &rt;
   hr = device_test_set_resource_backing(
-      create_dev.hDevice, hRt, /*alloc_id=*/1, /*offset_bytes=*/0, /*hAllocation=*/0x2000u);
+      create_dev.hDevice, hRt, /*alloc_id=*/0x1001u, /*offset_bytes=*/0, /*hAllocation=*/0x2000u);
   if (!Check(hr == S_OK, "device_test_set_resource_backing(rt)")) {
     return false;
   }
@@ -12689,7 +12689,7 @@ bool TestDrawStateTrackingPreSplitRetainsAllocs() {
   D3DDDI_HRESOURCE hTex{};
   hTex.pDrvPrivate = &tex;
   hr = device_test_set_resource_backing(
-      create_dev.hDevice, hTex, /*alloc_id=*/2, /*offset_bytes=*/0, /*hAllocation=*/0x3000u);
+      create_dev.hDevice, hTex, /*alloc_id=*/0x1002u, /*offset_bytes=*/0, /*hAllocation=*/0x3000u);
   if (!Check(hr == S_OK, "device_test_set_resource_backing(tex)")) {
     return false;
   }
@@ -12731,7 +12731,7 @@ bool TestDrawStateTrackingPreSplitRetainsAllocs() {
   verts[2] = {256.0f * 0.50f, 256.0f * 0.75f, 0.5f, 1.0f, kGreen};
 
   hr = cleanup.device_funcs.pfnDrawPrimitiveUP(create_dev.hDevice, D3DDDIPT_TRIANGLELIST, 1, verts, sizeof(Vertex));
-  if (!Check(hr == S_OK, "DrawPrimitiveUP")) {
+  if (!CheckHr(hr, S_OK, "DrawPrimitiveUP")) {
     return false;
   }
 
@@ -12975,7 +12975,7 @@ bool TestRenderTargetTrackingPreSplitRetainsAllocs() {
   D3DDDI_HRESOURCE hRt0{};
   hRt0.pDrvPrivate = &rt0;
   hr = device_test_set_resource_backing(
-      create_dev.hDevice, hRt0, /*alloc_id=*/1, /*offset_bytes=*/0, /*hAllocation=*/0x2000u);
+      create_dev.hDevice, hRt0, /*alloc_id=*/0x1001u, /*offset_bytes=*/0, /*hAllocation=*/0x2000u);
   if (!Check(hr == S_OK, "device_test_set_resource_backing(rt0)")) {
     return false;
   }
@@ -12986,7 +12986,7 @@ bool TestRenderTargetTrackingPreSplitRetainsAllocs() {
   D3DDDI_HRESOURCE hRt1{};
   hRt1.pDrvPrivate = &rt1;
   hr = device_test_set_resource_backing(
-      create_dev.hDevice, hRt1, /*alloc_id=*/2, /*offset_bytes=*/0, /*hAllocation=*/0x2001u);
+      create_dev.hDevice, hRt1, /*alloc_id=*/0x1002u, /*offset_bytes=*/0, /*hAllocation=*/0x2001u);
   if (!Check(hr == S_OK, "device_test_set_resource_backing(rt1)")) {
     return false;
   }
@@ -13009,7 +13009,7 @@ bool TestRenderTargetTrackingPreSplitRetainsAllocs() {
                                      /*color_rgba8=*/0xFF0000FFu,
                                      /*depth=*/1.0f,
                                      /*stencil=*/0);
-  if (!Check(hr == S_OK, "Clear")) {
+  if (!CheckHr(hr, S_OK, "Clear")) {
     return false;
   }
 
