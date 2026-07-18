@@ -713,7 +713,16 @@ function Get-MakefileSkipInfoForDriverTarget {
   }
 
   if ($Target.Kind -eq 'sln') {
-    $vcxprojs = Get-SlnReferencedVcxprojPaths -SolutionPath $Target.BuildPath
+    $vcxprojs = @()
+    try {
+      $vcxprojs = Get-SlnReferencedVcxprojPaths -SolutionPath ([string]$Target.BuildPath)
+    } catch {
+      # If we cannot enumerate vcxprojs (e.g. PowerShell binding quirk), err on the
+      # side of building: return $null so the driver is not skipped.
+      Write-Host ("Warning: Get-SlnReferencedVcxprojPaths failed for '{0}': {1}" -f $Target.BuildPath, $_.Exception.Message)
+      return $null
+    }
+    if (-not $vcxprojs) { $vcxprojs = @() }
     $makefileProjects = New-Object System.Collections.Generic.List[object]
 
     foreach ($vcxproj in $vcxprojs) {
@@ -919,7 +928,12 @@ foreach ($target in $targets) {
   $solutionDirForProjects = $null
   if (-not $IncludeMakefileProjects -and $target.Kind -eq 'sln') {
     $solutionDirForProjects = Split-Path -LiteralPath $target.BuildPath -Parent
-    $vcxprojs = @(Get-SlnReferencedVcxprojPaths -SolutionPath $target.BuildPath)
+    $vcxprojs = @()
+    try {
+      $vcxprojs = @(Get-SlnReferencedVcxprojPaths -SolutionPath ([string]$target.BuildPath))
+    } catch {
+      Write-Host ("Warning: Get-SlnReferencedVcxprojPaths failed for '{0}': {1}" -f $target.BuildPath, $_.Exception.Message)
+    }
     if ($vcxprojs -and $vcxprojs.Count -gt 0) {
       $buildable = New-Object System.Collections.Generic.List[string]
       $makefileProjects = New-Object System.Collections.Generic.List[object]

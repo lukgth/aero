@@ -23,7 +23,11 @@
 #include <unordered_map>
 #include <utility>
 
-#if defined(_WIN32)
+#if defined(_WIN32) && AEROGPU_UMD_USE_WDK_HEADERS
+  // WDK builds get d3d9types.h via the WDK include path. Portable Windows builds
+  // (AEROGPU_UMD_USE_WDK_HEADERS=0) use the project's own type definitions from
+  // aerogpu_d3d9_umd.h; including the SDK header here would cause C2011
+  // redefinition errors.
   #include <d3d9types.h>
 #endif
 
