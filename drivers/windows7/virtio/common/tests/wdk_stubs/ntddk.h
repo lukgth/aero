@@ -19,6 +19,17 @@
 #include <stddef.h>
 #include <string.h>
 
+#if defined(_MSC_VER)
+/* Pull in SAL before our type/function declarations so annotations resolve. */
+#include <sal.h>
+#ifndef _Must_inspect_result_
+#define _Must_inspect_result_
+#endif
+#ifndef _IRQL_requires_max_
+#define _IRQL_requires_max_(x)
+#endif
+#endif
+
 /* Basic WDK-like types */
 typedef void VOID;
 typedef uint8_t UCHAR;
@@ -130,7 +141,10 @@ NTSTATUS IoGetDeviceProperty(PDEVICE_OBJECT DeviceObject,
 
 #define IO_NO_INCREMENT 0
 
-/* SAL annotations -> empty for host build */
+/* SAL annotations -> empty for host build.
+ * On MSVC the real SAL macros are already available via the <sal.h> include
+ * at the top of this file; skip the redefinition to avoid C4005 warnings. */
+#if !defined(_MSC_VER)
 #define _In_
 #define _Inout_
 #define _In_opt_
@@ -146,17 +160,27 @@ NTSTATUS IoGetDeviceProperty(PDEVICE_OBJECT DeviceObject,
 #define _Out_
 #define _Out_opt_
 #define _IRQL_requires_max_(x)
+#endif
 
 /* Misc helpers/macros */
 #define UNREFERENCED_PARAMETER(P) ((VOID)(P))
 
 /* Always-on ASSERT for host tests (do not depend on NDEBUG). */
+#if defined(_MSC_VER)
+#define ASSERT(expr)                                                                                                      \
+    do {                                                                                                                 \
+        if (!(expr)) {                                                                                                   \
+            __debugbreak();                                                                                               \
+        }                                                                                                                \
+    } while (0)
+#else
 #define ASSERT(expr)                                                                                                      \
     do {                                                                                                                 \
         if (!(expr)) {                                                                                                   \
             __builtin_trap();                                                                                             \
         }                                                                                                                \
     } while (0)
+#endif
 
 #define RtlZeroMemory(Destination, Length) (void)memset((Destination), 0, (Length))
 #define RtlCopyMemory(Destination, Source, Length) (void)memcpy((Destination), (Source), (Length))
@@ -287,10 +311,18 @@ typedef struct _KSPIN_LOCK {
 KIRQL KeGetCurrentIrql(VOID);
 VOID WdkTestSetCurrentIrql(_In_ KIRQL Irql);
 
+#if defined(_MSC_VER)
+#include <intrin.h>
+static __forceinline VOID KeMemoryBarrier(VOID)
+{
+    MemoryBarrier();
+}
+#else
 static __forceinline VOID KeMemoryBarrier(VOID)
 {
     __atomic_thread_fence(__ATOMIC_SEQ_CST);
 }
+#endif
 
 static __forceinline VOID KeInitializeSpinLock(_Out_ PKSPIN_LOCK SpinLock)
 {
@@ -334,7 +366,11 @@ static __forceinline VOID KeAcquireSpinLock(_Inout_ PKSPIN_LOCK SpinLock, _Out_ 
      * Host tests are single-threaded. Contended locks indicate a bug (e.g.
      * double-acquire) and must fail fast instead of spinning forever.
      */
+#if defined(_MSC_VER)
+    if (_InterlockedExchange((volatile long*)&SpinLock->locked, 1) != 0) {
+#else
     if (__atomic_exchange_n(&SpinLock->locked, 1, __ATOMIC_ACQUIRE) != 0) {
+#endif
         ASSERT(FALSE);
     }
 }
@@ -349,7 +385,11 @@ static __forceinline VOID KeReleaseSpinLock(_Inout_ PKSPIN_LOCK SpinLock, _In_ K
      */
     ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
     if (SpinLock != NULL) {
+#if defined(_MSC_VER)
+        LONG prev = (LONG)_InterlockedExchange((volatile long*)&SpinLock->locked, 0);
+#else
         LONG prev = __atomic_exchange_n(&SpinLock->locked, 0, __ATOMIC_RELEASE);
+#endif
         if (prev == 0) {
             /* Releasing a lock that is not held (double-release) is a bug. */
             ASSERT(FALSE);
@@ -367,6 +407,32 @@ static __forceinline VOID KeStallExecutionProcessor(_In_ ULONG Microseconds)
 }
 
 /* Interlocked primitives (single-process host tests). */
+#if defined(_MSC_VER)
+static __forceinline LONG InterlockedIncrement(volatile LONG* Addend)
+{
+    return (LONG)_InterlockedIncrement((volatile long*)Addend);
+}
+
+static __forceinline LONG InterlockedDecrement(volatile LONG* Addend)
+{
+    return (LONG)_InterlockedDecrement((volatile long*)Addend);
+}
+
+static __forceinline LONG InterlockedExchange(volatile LONG* Target, LONG Value)
+{
+    return (LONG)_InterlockedExchange((volatile long*)Target, (long)Value);
+}
+
+static __forceinline LONG InterlockedOr(volatile LONG* Destination, LONG Value)
+{
+    return (LONG)_InterlockedOr((volatile long*)Destination, (long)Value);
+}
+
+static __forceinline LONG InterlockedCompareExchange(volatile LONG* Destination, LONG Exchange, LONG Comperand)
+{
+    return (LONG)_InterlockedCompareExchange((volatile long*)Destination, (long)Exchange, (long)Comperand);
+}
+#else
 static __forceinline LONG InterlockedIncrement(volatile LONG* Addend)
 {
     return __atomic_add_fetch((LONG*)Addend, 1, __ATOMIC_SEQ_CST);
@@ -393,6 +459,7 @@ static __forceinline LONG InterlockedCompareExchange(volatile LONG* Destination,
     (void)__atomic_compare_exchange_n((LONG*)Destination, &expected, Exchange, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
     return expected;
 }
+#endif
 
 /* KINTERRUPT */
 typedef struct _KINTERRUPT KINTERRUPT, *PKINTERRUPT;

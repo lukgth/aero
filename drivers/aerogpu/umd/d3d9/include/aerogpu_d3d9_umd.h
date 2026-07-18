@@ -199,6 +199,7 @@ typedef struct _LUID {
   // definitions (e.g. D3DMATRIX/D3DTRANSFORMSTATETYPE) so host-side tests can
   // compile without the WDK.
   #include <d3d9types.h>
+  #include <d3d9caps.h>
 #endif
 
 #if !defined(_WIN32)
@@ -702,19 +703,25 @@ typedef struct _D3DMATRIX {
   #define D3DTS_WORLD 256u
 #endif
 
+#endif // !defined(_WIN32)
+
+// D3DDDICAPS_TYPE and D3DDDI_QUERYADAPTERINFO_TYPE are in d3dumddi.h (WDK only).
+// Provide fallbacks for portable (non-WDK) builds on all platforms.
+#ifndef D3DDDICAPS_GETD3D9CAPS
 typedef enum _D3DDDICAPS_TYPE {
   D3DDDICAPS_GETD3D9CAPS = 1,
   D3DDDICAPS_GETFORMATCOUNT = 2,
   D3DDDICAPS_GETFORMAT = 3,
   D3DDDICAPS_GETMULTISAMPLEQUALITYLEVELS = 4,
 } D3DDDICAPS_TYPE;
+#endif
 
+#ifndef D3DDDIQUERYADAPTERINFO_GETADAPTERIDENTIFIER
 typedef enum _D3DDDI_QUERYADAPTERINFO_TYPE {
   D3DDDIQUERYADAPTERINFO_GETADAPTERIDENTIFIER = 1,
   D3DDDIQUERYADAPTERINFO_GETADAPTERLUID = 2,
 } D3DDDI_QUERYADAPTERINFO_TYPE;
-
-#endif // !defined(_WIN32)
+#endif
 
 // ---- Minimal handle shims -----------------------------------------------------
 // D3D9 UMD DDI handle types are opaque driver-private pointers. The WDK models

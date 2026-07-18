@@ -119,6 +119,9 @@ struct FnTraits<Ret(*)(Args...)> {
   template <size_t I>
   using Arg = std::tuple_element_t<I, ArgsTuple>;
 };
+// On x64 Windows __stdcall is the same as __cdecl (single calling convention),
+// so a separate partial specialization would be a redefinition (MSVC C2953).
+#if !defined(_M_AMD64) && !defined(_M_ARM64)
 template <typename Ret, typename... Args>
 struct FnTraits<Ret(__stdcall*)(Args...)> {
   using RetT = Ret;
@@ -127,6 +130,7 @@ struct FnTraits<Ret(__stdcall*)(Args...)> {
   template <size_t I>
   using Arg = std::tuple_element_t<I, ArgsTuple>;
 };
+#endif
 
 template <typename T, typename = void>
 struct HasMemberStateBlockType : std::false_type {};
