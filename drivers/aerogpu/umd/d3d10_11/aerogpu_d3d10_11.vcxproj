@@ -78,6 +78,14 @@
     <AeroGpuWdkRoot Condition="'$(AeroGpuWdkRoot)'=='' and '$(WINDDK)'!='' and ((Exists('$(WINDDK)\\inc\\api\\d3d10umddi.h') Or Exists('$(WINDDK)\\inc\\ddk\\d3d10umddi.h')) And (Exists('$(WINDDK)\\inc\\api\\d3d10_1umddi.h') Or Exists('$(WINDDK)\\inc\\ddk\\d3d10_1umddi.h')) And (Exists('$(WINDDK)\\inc\\api\\d3d11umddi.h') Or Exists('$(WINDDK)\\inc\\ddk\\d3d11umddi.h')) And (Exists('$(WINDDK)\\inc\\api\\d3dumddi.h') Or Exists('$(WINDDK)\\inc\\ddk\\d3dumddi.h')) And (Exists('$(WINDDK)\\inc\\api\\d3dkmthk.h') Or Exists('$(WINDDK)\\inc\\ddk\\d3dkmthk.h')))">$(WINDDK)</AeroGpuWdkRoot>
     <AeroGpuWdkRoot Condition="'$(AeroGpuWdkRoot)'=='' and '$(WDK_ROOT)'!='' and ((Exists('$(WDK_ROOT)\\inc\\api\\d3d10umddi.h') Or Exists('$(WDK_ROOT)\\inc\\ddk\\d3d10umddi.h')) And (Exists('$(WDK_ROOT)\\inc\\api\\d3d10_1umddi.h') Or Exists('$(WDK_ROOT)\\inc\\ddk\\d3d10_1umddi.h')) And (Exists('$(WDK_ROOT)\\inc\\api\\d3d11umddi.h') Or Exists('$(WDK_ROOT)\\inc\\ddk\\d3d11umddi.h')) And (Exists('$(WDK_ROOT)\\inc\\api\\d3dumddi.h') Or Exists('$(WDK_ROOT)\\inc\\ddk\\d3dumddi.h')) And (Exists('$(WDK_ROOT)\\inc\\api\\d3dkmthk.h') Or Exists('$(WDK_ROOT)\\inc\\ddk\\d3dkmthk.h')))">$(WDK_ROOT)</AeroGpuWdkRoot>
     <AeroGpuWdkRoot Condition="'$(AeroGpuWdkRoot)'=='' and '$(WDKROOT)'!='' and ((Exists('$(WDKROOT)\\inc\\api\\d3d10umddi.h') Or Exists('$(WDKROOT)\\inc\\ddk\\d3d10umddi.h')) And (Exists('$(WDKROOT)\\inc\\api\\d3d10_1umddi.h') Or Exists('$(WDKROOT)\\inc\\ddk\\d3d10_1umddi.h')) And (Exists('$(WDKROOT)\\inc\\api\\d3d11umddi.h') Or Exists('$(WDKROOT)\\inc\\ddk\\d3d11umddi.h')) And (Exists('$(WDKROOT)\\inc\\api\\d3dumddi.h') Or Exists('$(WDKROOT)\\inc\\ddk\\d3dumddi.h')) And (Exists('$(WDKROOT)\\inc\\api\\d3dkmthk.h') Or Exists('$(WDKROOT)\\inc\\ddk\\d3dkmthk.h')))">$(WDKROOT)</AeroGpuWdkRoot>
+    <!--
+      WDK 10+ installs headers under Windows Kits\10\Include\{version}\um\ rather than the older
+      WinDDK inc\{api,ddk} layout. Detect this layout using KitsRoot10 (from registry) and
+      WindowsSDKVersion (which includes the trailing backslash, e.g. "10.0.26100.0\").
+      This covers GitHub Actions CI runners and standard WDK10 installations.
+    -->
+    <AeroGpuWdk10UmRoot Condition="'$(KitsRoot10)'!='' and '$(WindowsSDKVersion)'!=''">$(KitsRoot10)Include\$(WindowsSDKVersion)um</AeroGpuWdk10UmRoot>
+    <AeroGpuWdk10UmRootValid Condition="'$(AeroGpuWdk10UmRoot)'!='' and Exists('$(AeroGpuWdk10UmRoot)\\d3d10umddi.h') and Exists('$(AeroGpuWdk10UmRoot)\\d3d11umddi.h') and Exists('$(AeroGpuWdk10UmRoot)\\d3dumddi.h')">true</AeroGpuWdk10UmRootValid>
   </PropertyGroup>
 
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -173,8 +181,13 @@
 
   <ItemDefinitionGroup>
     <ClCompile>
+      <!-- Suppress deprecated-but-portable CRT function warnings (getenv, fopen) used by the log module. -->
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(AeroGpuUseWdkHeaders)'=='1'">AEROGPU_UMD_USE_WDK_HEADERS=1;AEROGPU_D3D10_11_WDK_ABI_ENFORCE_EXPECTED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <!-- WinDDK7-style root (inc\api + inc\ddk). -->
       <AdditionalIncludeDirectories Condition="'$(AeroGpuUseWdkHeaders)'=='1' and '$(AeroGpuWdkRoot)'!=''">$(AeroGpuWdkRoot)\inc\api;$(AeroGpuWdkRoot)\inc\ddk;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- WDK10-style root: um\ directory alongside the standard SDK headers. -->
+      <AdditionalIncludeDirectories Condition="'$(AeroGpuUseWdkHeaders)'=='1' and '$(AeroGpuWdkRoot)'=='' and '$(AeroGpuWdk10UmRootValid)'=='true'">$(AeroGpuWdk10UmRoot);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
 

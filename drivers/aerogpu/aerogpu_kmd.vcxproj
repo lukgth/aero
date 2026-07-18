@@ -59,6 +59,18 @@
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
 
+  <!--
+    WDK kernel-mode include path fallback.
+    The WindowsKernelModeDriver10.0 toolset normally provides these via MSBuild integration, but
+    on CI runners where the WDK VS extension may not be fully wired, the toolset resolves without
+    error yet leaves the compiler unable to find ntddk.h. Add the WDK10 standard km\ and shared\
+    paths explicitly so the build works on both fresh VS+WDK installs and caching environments.
+    KitsRoot10 and WindowsSDKVersion are set by the Windows Kits MSBuild props (imported above).
+  -->
+  <PropertyGroup>
+    <AeroGpuKmdKitsRoot10 Condition="’$(KitsRoot10)’!=’’ and ‘$(WindowsSDKVersion)’!=’’">$(KitsRoot10)Include\$(WindowsSDKVersion)</AeroGpuKmdKitsRoot10>
+  </PropertyGroup>
+
   <ItemDefinitionGroup>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -70,6 +82,8 @@
       <TreatWarningAsError>false</TreatWarningAsError>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalIncludeDirectories>$(ProjectDir)kmd\include;$(ProjectDir)protocol;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- Explicit WDK10 kernel-mode include paths as fallback when toolset auto-detection fails. -->
+      <AdditionalIncludeDirectories Condition="’$(AeroGpuKmdKitsRoot10)’!=’’">$(AeroGpuKmdKitsRoot10)km;$(AeroGpuKmdKitsRoot10)shared;$(AeroGpuKmdKitsRoot10)wdm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>

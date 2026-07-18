@@ -4122,9 +4122,12 @@ HRESULT track_resource_allocation_locked(Device* dev, Resource* res, bool write)
     // AllocateCb/DeallocateCb runtimes may deallocate the active allocation list
     // on every submission. Reacquire/rebind the recording buffers before retrying
     // so the allocation tracker has a valid list to write into.
-    const size_t min_packet = align_up(sizeof(aerogpu_cmd_hdr), 4);
-    if (!wddm_ensure_recording_buffers(dev, min_packet)) {
-      return E_FAIL;
+    // Skip for simulated contexts (portable host tests).
+    if (!dev->wddm_context.is_simulated) {
+      const size_t min_packet = align_up(sizeof(aerogpu_cmd_hdr), 4);
+      if (!wddm_ensure_recording_buffers(dev, min_packet)) {
+        return E_FAIL;
+      }
     }
 #endif
 
@@ -4133,7 +4136,10 @@ HRESULT track_resource_allocation_locked(Device* dev, Resource* res, bool write)
     // "tracking disabled" so unit tests focused on other behavior keep working.
     if (!dev->alloc_list_tracker.list_base() || dev->alloc_list_tracker.list_capacity_effective() == 0) {
 #if defined(_WIN32)
-      return E_FAIL;
+      if (!dev->wddm_context.is_simulated) {
+        return E_FAIL;
+      }
+      return S_OK;
 #else
       return S_OK;
 #endif
@@ -4178,15 +4184,20 @@ HRESULT track_draw_state_locked(Device* dev) {
   }
 
 #if defined(_WIN32)
-  const size_t min_packet = align_up(sizeof(aerogpu_cmd_hdr), 4);
-  if (!wddm_ensure_recording_buffers(dev, min_packet)) {
-    return E_FAIL;
+  if (!dev->wddm_context.is_simulated) {
+    const size_t min_packet = align_up(sizeof(aerogpu_cmd_hdr), 4);
+    if (!wddm_ensure_recording_buffers(dev, min_packet)) {
+      return E_FAIL;
+    }
   }
 #endif
 
   if (!dev->alloc_list_tracker.list_base() || dev->alloc_list_tracker.list_capacity_effective() == 0) {
 #if defined(_WIN32)
-    return E_FAIL;
+    if (!dev->wddm_context.is_simulated) {
+      return E_FAIL;
+    }
+    return S_OK;
 #else
     return S_OK;
 #endif
@@ -4305,15 +4316,20 @@ HRESULT track_render_targets_locked(Device* dev) {
   }
 
 #if defined(_WIN32)
-  const size_t min_packet = align_up(sizeof(aerogpu_cmd_hdr), 4);
-  if (!wddm_ensure_recording_buffers(dev, min_packet)) {
-    return E_FAIL;
+  if (!dev->wddm_context.is_simulated) {
+    const size_t min_packet = align_up(sizeof(aerogpu_cmd_hdr), 4);
+    if (!wddm_ensure_recording_buffers(dev, min_packet)) {
+      return E_FAIL;
+    }
   }
 #endif
 
   if (!dev->alloc_list_tracker.list_base() || dev->alloc_list_tracker.list_capacity_effective() == 0) {
 #if defined(_WIN32)
-    return E_FAIL;
+    if (!dev->wddm_context.is_simulated) {
+      return E_FAIL;
+    }
+    return S_OK;
 #else
     return S_OK;
 #endif
