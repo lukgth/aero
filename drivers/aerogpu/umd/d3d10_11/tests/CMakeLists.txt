@@ -8,6 +8,7 @@ endif ()
 add_executable(aerogpu_d3d10_11_map_unmap_tests
     map_unmap_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_umd.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_log.cpp
 )
 
 target_include_directories(aerogpu_d3d10_11_map_unmap_tests PRIVATE
@@ -61,6 +62,7 @@ add_test(NAME aerogpu_d3d10_11_depth_stencil_state_tests COMMAND aerogpu_d3d10_1
 add_executable(aerogpu_d3d10_11_render_target_tests
     render_target_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_umd.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_log.cpp
 )
 
 target_include_directories(aerogpu_d3d10_11_render_target_tests PRIVATE
@@ -79,6 +81,7 @@ add_test(NAME aerogpu_d3d10_11_render_target_tests COMMAND aerogpu_d3d10_11_rend
 add_executable(aerogpu_d3d10_11_viewport_scissor_validation_tests
     viewport_scissor_validation_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_umd.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_log.cpp
 )
 
 target_include_directories(aerogpu_d3d10_11_viewport_scissor_validation_tests PRIVATE
@@ -98,6 +101,7 @@ add_test(NAME aerogpu_d3d10_11_viewport_scissor_validation_tests
 add_executable(aerogpu_d3d10_11_mrt_tests
     mrt_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_umd.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_log.cpp
 )
 
 target_include_directories(aerogpu_d3d10_11_mrt_tests PRIVATE
@@ -116,6 +120,7 @@ add_test(NAME aerogpu_d3d10_11_mrt_tests COMMAND aerogpu_d3d10_11_mrt_tests)
 add_executable(aerogpu_d3d10_11_blend_state_validation_tests
     blend_state_validation_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_umd.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_log.cpp
 )
 
 target_include_directories(aerogpu_d3d10_11_blend_state_validation_tests PRIVATE
@@ -134,6 +139,7 @@ add_test(NAME aerogpu_d3d10_11_blend_state_validation_tests COMMAND aerogpu_d3d1
 add_executable(aerogpu_d3d10_11_state_packets_tests
     state_packets_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_umd.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_log.cpp
 )
 
 target_include_directories(aerogpu_d3d10_11_state_packets_tests PRIVATE
@@ -169,6 +175,7 @@ add_test(NAME aerogpu_d3d10_11_dxgi_format_tests COMMAND aerogpu_d3d10_11_dxgi_f
 add_executable(aerogpu_d3d10_11_texture_view_tests
     texture_view_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_umd.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/aerogpu_d3d10_11_log.cpp
 )
 
 target_include_directories(aerogpu_d3d10_11_texture_view_tests PRIVATE

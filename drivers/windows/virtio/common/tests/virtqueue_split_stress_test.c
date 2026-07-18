@@ -388,7 +388,7 @@ static void ScenarioOutOfOrderCompletion(BOOLEAN event_idx, BOOLEAN indirect)
 	const UINT16 sg_count = 3;
 
 	VQ_CTX ctx;
-	VIRTQ_SG sg[sg_count];
+	VIRTQ_SG sg[3];
 
 	UINT16 heads[64];
 	UINT16 n, i;
@@ -457,7 +457,7 @@ static void ScenarioRingFullBackpressure(BOOLEAN event_idx, BOOLEAN indirect)
 	const UINT16 sg_count = 3;
 
 	VQ_CTX ctx;
-	VIRTQ_SG sg[sg_count];
+	VIRTQ_SG sg[3];
 	UINT16 avail_heads[32];
 	UINT16 count = 0;
 	UINT16 i;
@@ -587,7 +587,7 @@ static void ScenarioIndirectPoolExhaustionFallback(BOOLEAN event_idx)
 	const UINT16 pool_tables = 1;
 
 	VQ_CTX ctx;
-	VIRTQ_SG sg[sg_count];
+	VIRTQ_SG sg[3];
 	UINT16 heads[4];
 	UINT16 i;
 
@@ -693,7 +693,7 @@ static void ScenarioWraparoundTorture(BOOLEAN event_idx, BOOLEAN indirect)
 	const UINT32 ops = 100000;
 
 	VQ_CTX ctx;
-	VIRTQ_SG sg[sg_count];
+	VIRTQ_SG sg[3];
 	UINT16 outstanding[64];
 	UINT16 outstanding_count = 0;
 	UINT32 cookie_counter = 1;

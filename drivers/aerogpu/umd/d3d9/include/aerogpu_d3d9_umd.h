@@ -195,14 +195,14 @@ typedef struct _LUID {
 #else
 
 #if defined(_WIN32)
-  // Portable mode on Windows: rely on the Windows SDK for the classic D3D9 type
-  // definitions (e.g. D3DMATRIX/D3DTRANSFORMSTATETYPE) so host-side tests can
-  // compile without the WDK.
-  #include <d3d9types.h>
-  #include <d3d9caps.h>
+  // Portable mode on Windows: use the project's own D3D9 type definitions (see
+  // the !AEROGPU_UMD_USE_WDK_HEADERS block below) rather than <d3d9types.h>.
+  // The SDK's D3DRECTPATCH_INFO uses different field layout (StartVertexOffsetWidth/
+  // StartVertexOffsetHeight vs. this project's StartVertexOffset/NumVertices), and
+  // the SDK's D3DCAPS9 may omit BlendOpCaps on lean/older SDK installations.
+  // On WDK builds the WDK headers are included above and cover everything.
 
-  // Fallback for caps constants that may not be present in all Windows SDK
-  // configurations (e.g. older DirectX headers or lean SDK installations).
+  // Fallback for caps constants that may not be present in all configurations.
   #ifndef D3DCAPS2_CANRENDERWINDOWED
     #define D3DCAPS2_CANRENDERWINDOWED 0x00000020L
   #endif
@@ -236,13 +236,29 @@ typedef struct _LUID {
   #ifndef D3DPBLENDCAPS_INVBLENDFACTOR
     #define D3DPBLENDCAPS_INVBLENDFACTOR 0x00004000L
   #endif
+  #ifndef D3DBLENDOPCAPS_ADD
+    #define D3DBLENDOPCAPS_ADD 0x00000001L
+  #endif
+  #ifndef D3DBLENDOPCAPS_SUBTRACT
+    #define D3DBLENDOPCAPS_SUBTRACT 0x00000002L
+  #endif
+  #ifndef D3DBLENDOPCAPS_REVSUBTRACT
+    #define D3DBLENDOPCAPS_REVSUBTRACT 0x00000004L
+  #endif
+  #ifndef D3DBLENDOPCAPS_MIN
+    #define D3DBLENDOPCAPS_MIN 0x00000008L
+  #endif
+  #ifndef D3DBLENDOPCAPS_MAX
+    #define D3DBLENDOPCAPS_MAX 0x00000010L
+  #endif
 #endif
 
-#if !defined(_WIN32)
+#if !defined(_WIN32) || !AEROGPU_UMD_USE_WDK_HEADERS
 // ---- D3D9 public types/constants (subset) ------------------------------------
-// Repository builds do not include the Windows SDK/WDK, but the UMD still needs
-// ABI-compatible public structs (D3DCAPS9, D3DADAPTER_IDENTIFIER9) to satisfy
-// Win7 D3D9Ex runtime behavior.
+// Non-Windows builds and portable (non-WDK) Windows builds use this block.
+// WDK Windows builds include the real SDK/WDK headers above.
+// The UMD still needs ABI-compatible public structs (D3DCAPS9,
+// D3DADAPTER_IDENTIFIER9) to satisfy Win7 D3D9Ex runtime behavior.
 
 // Shader version encoding (mirrors d3d9caps.h).
 #ifndef D3DVS_VERSION
@@ -835,9 +851,9 @@ typedef enum _D3DDDIPRIMITIVETYPE {
 //
 // These mirror the public D3D9 API structs from d3d9types.h so host-side tests
 // can compile without the Windows SDK/WDK.
-// On Windows, d3d9types.h (included above) already defines these; guard them to
-// avoid redefinition errors when building with the Windows SDK present.
-#if !defined(_WIN32)
+// WDK Windows builds get these from the WDK headers above; portable Windows builds
+// and non-Windows builds use these definitions.
+#if !defined(_WIN32) || !AEROGPU_UMD_USE_WDK_HEADERS
 typedef enum _D3DBASISTYPE {
   D3DBASIS_BEZIER = 0,
   D3DBASIS_BSPLINE = 1,

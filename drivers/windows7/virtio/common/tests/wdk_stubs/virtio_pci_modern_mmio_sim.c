@@ -58,7 +58,11 @@ static void mmio_sim_check_queue_select_lock(size_t off)
     g_sim->queue_select_lock_check_count++;
 
     lock = g_sim->queue_select_lock;
+#if defined(_MSC_VER)
+    held = _InterlockedOr((volatile long*)&lock->locked, 0);
+#else
     held = __atomic_load_n((const LONG*)&lock->locked, __ATOMIC_ACQUIRE);
+#endif
     if (held == 0) {
         g_sim->queue_select_lock_violation_count++;
     }

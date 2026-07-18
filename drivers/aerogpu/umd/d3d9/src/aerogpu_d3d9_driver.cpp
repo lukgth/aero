@@ -28196,7 +28196,7 @@ HRESULT AEROGPU_D3D9_CALL OpenAdapter(
         }
       }
     }
-  }
+    }
     if (hdc) {
       ReleaseDC(nullptr, hdc);
     }

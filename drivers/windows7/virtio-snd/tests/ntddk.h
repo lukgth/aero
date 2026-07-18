@@ -215,7 +215,19 @@ static __forceinline void ExQueueWorkItem(_Inout_ PWORK_QUEUE_ITEM Item, _In_ WO
 static __forceinline LONG InterlockedIncrement(volatile LONG *addend) { return _InterlockedIncrement(addend); }
 static __forceinline LONG InterlockedDecrement(volatile LONG *addend) { return _InterlockedDecrement(addend); }
 static __forceinline LONG InterlockedExchange(volatile LONG *target, LONG value) { return _InterlockedExchange(target, value); }
+#if defined(_M_AMD64) || defined(_M_ARM64) || defined(_M_IA64)
+/* _InterlockedExchange64 is a native 64-bit intrinsic on 64-bit targets. */
 static __forceinline LONGLONG InterlockedExchange64(volatile LONGLONG *target, LONGLONG value) { return _InterlockedExchange64(target, value); }
+#else
+/* 32-bit x86: _InterlockedExchange64 is not a linker-available intrinsic.
+ * Tests are single-threaded so a plain swap is safe. */
+static __forceinline LONGLONG InterlockedExchange64(volatile LONGLONG *target, LONGLONG value)
+{
+    LONGLONG old = *target;
+    *target = value;
+    return old;
+}
+#endif
 static __forceinline LONG InterlockedCompareExchange(volatile LONG *dest, LONG exchange, LONG comparand)
 {
     return _InterlockedCompareExchange(dest, exchange, comparand);

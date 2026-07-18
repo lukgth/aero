@@ -33,10 +33,14 @@ struct fn_first_param<Ret(__stdcall*)(Arg0, Rest...)> {
   using type = Arg0;
 };
 
+// On x64/ARM64, __stdcall is the same as the default calling convention, so
+// the plain-pointer specialization below would be a redefinition (C2953).
+#if !defined(_M_AMD64) && !defined(_M_ARM64)
 template <typename Ret, typename Arg0, typename... Rest>
 struct fn_first_param<Ret(*)(Arg0, Rest...)> {
   using type = Arg0;
 };
+#endif
 
 template <typename T, typename = void>
 struct has_pfnCreateDeviceCb : std::false_type {};
