@@ -208,9 +208,34 @@ jobs:
   aerogpu-host-tests-windows:
     name: AeroGPU host tests (Windows, x86 + x64)
     runs-on: windows-latest
+    env:
+      WDK_DOWNLOAD_CACHE: C:\wdk-download-cache
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Prepare WDK download cache directory
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path $env:WDK_DOWNLOAD_CACHE | Out-Null
+
+      - name: Cache WDK downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.WDK_DOWNLOAD_CACHE }}
+          key: wdk-download-${{ runner.os }}-${{ hashFiles('ci/install-wdk.ps1', 'ci/lib/Toolchain.psm1') }}
+          restore-keys: |
+            wdk-download-${{ runner.os }}-
+
+      - name: Provision toolchain (ci/install-wdk.ps1)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (!(Test-Path -LiteralPath 'ci\install-wdk.ps1')) {
+            throw "Expected script ci\install-wdk.ps1 to exist."
+          }
+          pwsh -NoProfile -ExecutionPolicy Bypass -File 'ci\install-wdk.ps1'
 
       - name: Run AeroGPU host tests (CMake)
         shell: pwsh
@@ -249,31 +274,6 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           pwsh -NoProfile -ExecutionPolicy Bypass -File 'ci/check-virtio-driver-uniqueness.ps1'
-
-      - name: Run virtio host tests (CMake)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          $hasWin7VirtioCommon = Test-Path -LiteralPath 'drivers/windows7/virtio/common/tests/CMakeLists.txt'
-          $hasWin7VirtioSnd = Test-Path -LiteralPath 'drivers/windows7/virtio-snd/tests/CMakeLists.txt'
-          $hasPortableVirtqSplit = Test-Path -LiteralPath 'drivers/windows/virtio/common/tests/CMakeLists.txt'
-          $hasPortableVirtioPciModern = Test-Path -LiteralPath 'drivers/windows/virtio/pci-modern/tests/CMakeLists.txt'
-          $hasWin7VirtioCapParser = Test-Path -LiteralPath 'drivers/win7/virtio/tests/CMakeLists.txt'
-
-          if (!$hasWin7VirtioCommon -and !$hasWin7VirtioSnd -and !$hasPortableVirtqSplit -and !$hasPortableVirtioPciModern -and !$hasWin7VirtioCapParser) {
-            Write-Host "No virtio host tests found; skipping."
-            exit 0
-          }
-
-          # Validate both architectures (x86 + x64) without requiring any VM.
-          cmake -S . -B build-virtio-common-x64 -A x64 -DAERO_VIRTIO_BUILD_TESTS=ON -DAERO_AEROGPU_BUILD_TESTS=OFF
-          cmake --build build-virtio-common-x64 --config Release
-          ctest --test-dir build-virtio-common-x64 --output-on-failure -C Release
-
-          cmake -S . -B build-virtio-common-x86 -A Win32 -DAERO_VIRTIO_BUILD_TESTS=ON -DAERO_AEROGPU_BUILD_TESTS=OFF
-          cmake --build build-virtio-common-x86 --config Release
-          ctest --test-dir build-virtio-common-x86 --output-on-failure -C Release
 
       - name: Detect driver projects
         id: detect
@@ -549,6 +549,32 @@ jobs:
             throw "Expected script ci\install-wdk.ps1 to exist."
           }
           pwsh -NoProfile -ExecutionPolicy Bypass -File 'ci\install-wdk.ps1'
+
+      - name: Run virtio host tests (CMake)
+        if: steps.detect.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $hasWin7VirtioCommon = Test-Path -LiteralPath 'drivers/windows7/virtio/common/tests/CMakeLists.txt'
+          $hasWin7VirtioSnd = Test-Path -LiteralPath 'drivers/windows7/virtio-snd/tests/CMakeLists.txt'
+          $hasPortableVirtqSplit = Test-Path -LiteralPath 'drivers/windows/virtio/common/tests/CMakeLists.txt'
+          $hasPortableVirtioPciModern = Test-Path -LiteralPath 'drivers/windows/virtio/pci-modern/tests/CMakeLists.txt'
+          $hasWin7VirtioCapParser = Test-Path -LiteralPath 'drivers/win7/virtio/tests/CMakeLists.txt'
+
+          if (!$hasWin7VirtioCommon -and !$hasWin7VirtioSnd -and !$hasPortableVirtqSplit -and !$hasPortableVirtioPciModern -and !$hasWin7VirtioCapParser) {
+            Write-Host "No virtio host tests found; skipping."
+            exit 0
+          }
+
+          # Validate both architectures (x86 + x64) without requiring any VM.
+          cmake -S . -B build-virtio-common-x64 -A x64 -DAERO_VIRTIO_BUILD_TESTS=ON -DAERO_AEROGPU_BUILD_TESTS=OFF
+          cmake --build build-virtio-common-x64 --config Release
+          ctest --test-dir build-virtio-common-x64 --output-on-failure -C Release
+
+          cmake -S . -B build-virtio-common-x86 -A Win32 -DAERO_VIRTIO_BUILD_TESTS=ON -DAERO_AEROGPU_BUILD_TESTS=OFF
+          cmake --build build-virtio-common-x86 --config Release
+          ctest --test-dir build-virtio-common-x86 --output-on-failure -C Release
 
       - name: Validate AeroGPU D3D9 UMD exports (.def stdcall decoration)
         if: steps.detect.outputs.skip != 'true'
