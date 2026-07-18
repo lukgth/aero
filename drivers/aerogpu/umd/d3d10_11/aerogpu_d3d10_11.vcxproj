@@ -73,19 +73,25 @@
       $(AeroGpuWdkRoot)\inc\{api,ddk}. If unset, the build falls back to the toolchain's standard
       include paths (common for WDK10+ installs).
     -->
-    <AeroGpuUseWdkHeaders Condition="'$(AeroGpuUseWdkHeaders)'==''">1</AeroGpuUseWdkHeaders>
     <!-- Only treat these env vars as WinDDK-style roots when they contain the expected inc\{api,ddk} layout. -->
     <AeroGpuWdkRoot Condition="'$(AeroGpuWdkRoot)'=='' and '$(WINDDK)'!='' and ((Exists('$(WINDDK)\\inc\\api\\d3d10umddi.h') Or Exists('$(WINDDK)\\inc\\ddk\\d3d10umddi.h')) And (Exists('$(WINDDK)\\inc\\api\\d3d10_1umddi.h') Or Exists('$(WINDDK)\\inc\\ddk\\d3d10_1umddi.h')) And (Exists('$(WINDDK)\\inc\\api\\d3d11umddi.h') Or Exists('$(WINDDK)\\inc\\ddk\\d3d11umddi.h')) And (Exists('$(WINDDK)\\inc\\api\\d3dumddi.h') Or Exists('$(WINDDK)\\inc\\ddk\\d3dumddi.h')) And (Exists('$(WINDDK)\\inc\\api\\d3dkmthk.h') Or Exists('$(WINDDK)\\inc\\ddk\\d3dkmthk.h')))">$(WINDDK)</AeroGpuWdkRoot>
     <AeroGpuWdkRoot Condition="'$(AeroGpuWdkRoot)'=='' and '$(WDK_ROOT)'!='' and ((Exists('$(WDK_ROOT)\\inc\\api\\d3d10umddi.h') Or Exists('$(WDK_ROOT)\\inc\\ddk\\d3d10umddi.h')) And (Exists('$(WDK_ROOT)\\inc\\api\\d3d10_1umddi.h') Or Exists('$(WDK_ROOT)\\inc\\ddk\\d3d10_1umddi.h')) And (Exists('$(WDK_ROOT)\\inc\\api\\d3d11umddi.h') Or Exists('$(WDK_ROOT)\\inc\\ddk\\d3d11umddi.h')) And (Exists('$(WDK_ROOT)\\inc\\api\\d3dumddi.h') Or Exists('$(WDK_ROOT)\\inc\\ddk\\d3dumddi.h')) And (Exists('$(WDK_ROOT)\\inc\\api\\d3dkmthk.h') Or Exists('$(WDK_ROOT)\\inc\\ddk\\d3dkmthk.h')))">$(WDK_ROOT)</AeroGpuWdkRoot>
     <AeroGpuWdkRoot Condition="'$(AeroGpuWdkRoot)'=='' and '$(WDKROOT)'!='' and ((Exists('$(WDKROOT)\\inc\\api\\d3d10umddi.h') Or Exists('$(WDKROOT)\\inc\\ddk\\d3d10umddi.h')) And (Exists('$(WDKROOT)\\inc\\api\\d3d10_1umddi.h') Or Exists('$(WDKROOT)\\inc\\ddk\\d3d10_1umddi.h')) And (Exists('$(WDKROOT)\\inc\\api\\d3d11umddi.h') Or Exists('$(WDKROOT)\\inc\\ddk\\d3d11umddi.h')) And (Exists('$(WDKROOT)\\inc\\api\\d3dumddi.h') Or Exists('$(WDKROOT)\\inc\\ddk\\d3dumddi.h')) And (Exists('$(WDKROOT)\\inc\\api\\d3dkmthk.h') Or Exists('$(WDKROOT)\\inc\\ddk\\d3dkmthk.h')))">$(WDKROOT)</AeroGpuWdkRoot>
     <!--
-      WDK 10+ installs headers under Windows Kits\10\Include\{version}\um\ rather than the older
-      WinDDK inc\{api,ddk} layout. Detect this layout using KitsRoot10 (from registry) and
-      WindowsSDKVersion (which includes the trailing backslash, e.g. "10.0.26100.0\").
-      This covers GitHub Actions CI runners and standard WDK10 installations.
+      WDK 10+ installs D3D DDI headers under Windows Kits\10\Include\{version}\um\ rather than
+      the older WinDDK inc\{api,ddk} layout. Detect this layout using KitsRoot10 (from registry)
+      and WindowsSDKVersion (which includes the trailing backslash, e.g. "10.0.26100.0\").
+      Note: d3d10umddi.h is a WDK DDI header, NOT the public Windows SDK — it is only present
+      when the full WDK is installed with DDI components (not just the SDK/tools).
     -->
     <AeroGpuWdk10UmRoot Condition="'$(KitsRoot10)'!='' and '$(WindowsSDKVersion)'!=''">$(KitsRoot10)Include\$(WindowsSDKVersion)um</AeroGpuWdk10UmRoot>
     <AeroGpuWdk10UmRootValid Condition="'$(AeroGpuWdk10UmRoot)'!='' and Exists('$(AeroGpuWdk10UmRoot)\\d3d10umddi.h') and Exists('$(AeroGpuWdk10UmRoot)\\d3d11umddi.h') and Exists('$(AeroGpuWdk10UmRoot)\\d3dumddi.h')">true</AeroGpuWdk10UmRootValid>
+    <!--
+      Enable WDK DDI headers only when the headers are actually present. Falls back to the local
+      portable ABI subset when WDK DDI headers are not found (e.g. CI without a full WDK install).
+    -->
+    <AeroGpuUseWdkHeaders Condition="'$(AeroGpuUseWdkHeaders)'=='' and ('$(AeroGpuWdkRoot)'!='' or '$(AeroGpuWdk10UmRootValid)'=='true')">1</AeroGpuUseWdkHeaders>
+    <AeroGpuUseWdkHeaders Condition="'$(AeroGpuUseWdkHeaders)'==''">0</AeroGpuUseWdkHeaders>
   </PropertyGroup>
 
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
