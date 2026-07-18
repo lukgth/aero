@@ -35,14 +35,67 @@ function Get-VsWhereExe {
   return $null
 }
 
+function Test-VsHasWdkKernelToolset {
+  # Returns $true if the given VS installation has the WDK kernel-mode driver toolset
+  # (WindowsKernelModeDriver10.0) registered in its MSBuild PlatformToolsets directory.
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$VsInstallPath
+  )
+
+  $vcTargetsBase = Join-Path $VsInstallPath 'MSBuild\Microsoft\VC'
+  if (-not (Test-Path -LiteralPath $vcTargetsBase)) {
+    return $false
+  }
+
+  $vcVersionDirs = Get-ChildItem -LiteralPath $vcTargetsBase -Directory -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match '^v\d+$' }
+
+  foreach ($vcDir in $vcVersionDirs) {
+    foreach ($platform in @('Win32', 'x64')) {
+      $toolsetPath = Join-Path $vcDir.FullName "Platforms\$platform\PlatformToolsets\WindowsKernelModeDriver10.0"
+      if (Test-Path -LiteralPath $toolsetPath) {
+        return $true
+      }
+    }
+  }
+
+  return $false
+}
+
 function Get-VsInstallationPath {
   [CmdletBinding()]
   param()
 
   $vswhere = Get-VsWhereExe
   if ($null -ne $vswhere) {
-    $installPath = & $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -property installationPath 2>$null
-    $installPath = [string]$installPath
+    # Query all VS installations and prefer the newest one that has the WDK kernel-mode driver
+    # toolset. On runners where VS 2025 (18.x) is the newest but the WDK VS extension is only
+    # installed for VS 2022 (17.x), preferring VS 2022 lets both VsDevCmd.bat and MSBuild load
+    # the WindowsKernelModeDriver10.0 toolset (and its architecture-define props) correctly.
+    $allPaths = @(& $vswhere -all -products '*' -requires Microsoft.Component.MSBuild -property installationPath 2>$null)
+    $validPaths = @($allPaths |
+      ForEach-Object { ([string]$_).Trim() } |
+      Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path -LiteralPath $_) })
+
+    if ($validPaths.Count -gt 0) {
+      # Sort descending by path: newer VS major versions produce higher dir numbers, so
+      # lexicographic descending order naturally prefers newer VS over older ones.
+      $sortedPaths = @($validPaths | Sort-Object -Descending)
+
+      foreach ($path in $sortedPaths) {
+        if (Test-VsHasWdkKernelToolset -VsInstallPath $path) {
+          return (Resolve-ExistingPath -LiteralPath $path)
+        }
+      }
+
+      # No installation has the WDK toolset; fall back to the newest available.
+      return (Resolve-ExistingPath -LiteralPath $sortedPaths[0])
+    }
+
+    # Legacy single-query fallback.
+    $installPath = [string](& $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -property installationPath 2>$null)
     $installPath = $installPath.Trim()
     if (-not [string]::IsNullOrWhiteSpace($installPath) -and (Test-Path -LiteralPath $installPath)) {
       return (Resolve-ExistingPath -LiteralPath $installPath)
@@ -94,21 +147,18 @@ function Get-MSBuildExe {
   [CmdletBinding()]
   param()
 
-  $vswhere = Get-VsWhereExe
-  if ($null -ne $vswhere) {
-    $findPatterns = @(
+  # Use Get-VsInstallationPath (which prefers the VS version with the WDK kernel toolset) so
+  # that MSBuild and the developer environment come from the same VS installation.
+  $installPath = Get-VsInstallationPath
+  if ($null -ne $installPath) {
+    $msbuildCandidates = @(
       'MSBuild\Current\Bin\amd64\MSBuild.exe',
-      'MSBuild\Current\Bin\MSBuild.exe',
-      'MSBuild\**\Bin\amd64\MSBuild.exe',
-      'MSBuild\**\Bin\MSBuild.exe'
+      'MSBuild\Current\Bin\MSBuild.exe'
     )
-
-    foreach ($pattern in $findPatterns) {
-      $paths = & $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -find $pattern 2>$null
-      foreach ($path in @($paths)) {
-        if (-not [string]::IsNullOrWhiteSpace($path) -and (Test-Path -LiteralPath $path)) {
-          return (Resolve-ExistingPath -LiteralPath $path)
-        }
+    foreach ($rel in $msbuildCandidates) {
+      $candidate = Join-Path $installPath $rel
+      if (Test-Path -LiteralPath $candidate) {
+        return (Resolve-ExistingPath -LiteralPath $candidate)
       }
     }
   }
@@ -781,6 +831,7 @@ function Publish-ToolchainToGitHubActions {
 
 Export-ModuleMember -Function `
   Write-ToolchainLog, `
+  Get-VsInstallationPath, `
   Get-VsDevCmdBat, `
   Get-VcVarsAllBat, `
   Get-MSBuildExe, `

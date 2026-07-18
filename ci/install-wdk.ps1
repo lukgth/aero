@@ -45,6 +45,13 @@ if (-not (Test-Path -LiteralPath $outDir)) {
 $msbuildExe = Get-MSBuildExe
 Write-ToolchainLog -Message "Resolved msbuild.exe: $msbuildExe"
 
+$vsInstallPath = Get-VsInstallationPath
+if ($null -ne $vsInstallPath) {
+  Write-ToolchainLog -Message "Selected VS installation: $vsInstallPath"
+} else {
+  Write-ToolchainLog -Level WARN -Message 'Visual Studio installation not found via vswhere.'
+}
+
 $vsDevCmd = Get-VsDevCmdBat
 $vcVarsAll = Get-VcVarsAllBat
 if ($null -ne $vsDevCmd -and -not [string]::IsNullOrWhiteSpace($vsDevCmd)) {
