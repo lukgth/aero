@@ -89,7 +89,8 @@
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalIncludeDirectories>$(ProjectDir)kmd\include;$(ProjectDir)protocol;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <!-- Explicit WDK10 kernel-mode include paths as fallback when toolset auto-detection fails. -->
-      <AdditionalIncludeDirectories Condition="'$(AeroGpuKmdKitsRoot10)'!=''">$(AeroGpuKmdKitsRoot10)km;$(AeroGpuKmdKitsRoot10)shared;$(AeroGpuKmdKitsRoot10)wdm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- um\ is needed because shared\ headers (e.g. d3dukmdt.h) include windef.h/basetsd.h from um\. -->
+      <AdditionalIncludeDirectories Condition="'$(AeroGpuKmdKitsRoot10)'!=''">$(AeroGpuKmdKitsRoot10)km;$(AeroGpuKmdKitsRoot10)shared;$(AeroGpuKmdKitsRoot10)wdm;$(AeroGpuKmdKitsRoot10)um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>

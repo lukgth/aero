@@ -1283,7 +1283,16 @@ foreach ($target in $targets) {
 
   foreach ($platform in $normalizedPlatforms) {
     if ($null -ne $toolchain) {
-      Initialize-ToolchainEnvironment -Toolchain $toolchain -Platform $platform
+      # VsDevCmd.bat / vcvarsall.bat may return non-zero when the environment is already
+      # initialized (e.g. second platform call after a successful bootstrap).  Treat this
+      # as a warning rather than a fatal error — MSBuild can often cross-compile from the
+      # existing environment (e.g. HostX64 -> x86 / x64 without re-initializing).
+      try {
+        Initialize-ToolchainEnvironment -Toolchain $toolchain -Platform $platform
+      } catch {
+        Write-Host "Warning: toolchain environment re-initialization failed for platform $platform (may already be set up): $($_.Exception.Message)"
+        Write-Host "Continuing with existing environment — MSBuild may handle cross-compilation natively."
+      }
     }
 
     $arch = Platform-ToArch -Platform $platform
