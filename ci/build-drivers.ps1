@@ -671,7 +671,7 @@ function Get-SlnReferencedVcxprojPaths {
     throw "Solution not found: $SolutionPath"
   }
 
-  $solutionDir = Split-Path -LiteralPath $SolutionPath -Parent
+  $solutionDir = [IO.Path]::GetDirectoryName([string]$SolutionPath)
   $lines = Get-Content -LiteralPath $SolutionPath
   $paths = New-Object System.Collections.Generic.List[string]
 
@@ -927,7 +927,7 @@ foreach ($target in $targets) {
   $solutionSkippedMakefileProjects = $null
   $solutionDirForProjects = $null
   if (-not $IncludeMakefileProjects -and $target.Kind -eq 'sln') {
-    $solutionDirForProjects = Split-Path -LiteralPath $target.BuildPath -Parent
+    $solutionDirForProjects = [IO.Path]::GetDirectoryName([string]$target.BuildPath)
     $vcxprojs = @()
     try {
       $vcxprojs = @(Get-SlnReferencedVcxprojPaths -SolutionPath ([string]$target.BuildPath))
